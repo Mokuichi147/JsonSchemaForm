@@ -73,6 +73,7 @@
       </div>
     </div>
     <input type="hidden" data-field="key" />
+    <input type="hidden" data-field="type" />
     <div class="mt-3 grid gap-3 md:grid-cols-3">
       <div class="md:col-span-1">
         <label class="text-xs text-slate-500">ラベル</label>
@@ -80,14 +81,7 @@
       </div>
       <div>
         <label class="text-xs text-slate-500">種類</label>
-        <select data-field="type" class="mt-1 w-full rounded border border-slate-300 px-2 py-1 text-sm">
-          <option value="string">文字列</option>
-          <option value="number">数値</option>
-          <option value="integer">整数</option>
-          <option value="boolean">真偽</option>
-          <option value="enum">選択肢</option>
-          <option value="file">ファイル</option>
-        </select>
+        <div class="mt-1 rounded border border-slate-200 bg-slate-100 px-2 py-2 text-sm text-slate-700" data-field-label="type">-</div>
       </div>
       <div class="flex items-center gap-2 pt-5 text-sm">
         <label class="flex items-center gap-2">
@@ -117,7 +111,6 @@
           <option value="email">email</option>
           <option value="date">date</option>
           <option value="url">url</option>
-          <option value="datetime-local">datetime-local</option>
         </select>
       </div>
     </div>
@@ -141,14 +134,44 @@
   </div>
 </template>
 
+<div id="type-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/40">
+  <div class="w-full max-w-md rounded-lg bg-white p-6 shadow-lg">
+    <div class="text-lg font-semibold">フィールドの種類を選択</div>
+    <p class="mt-1 text-sm text-slate-600">追加したい種類を選んでください。</p>
+    <div class="mt-4 grid gap-2 sm:grid-cols-2">
+      <button type="button" class="type-option rounded border border-slate-300 px-3 py-2 text-sm" data-type="string">文字列</button>
+      <button type="button" class="type-option rounded border border-slate-300 px-3 py-2 text-sm" data-type="number">数値</button>
+      <button type="button" class="type-option rounded border border-slate-300 px-3 py-2 text-sm" data-type="integer">整数</button>
+      <button type="button" class="type-option rounded border border-slate-300 px-3 py-2 text-sm" data-type="datetime">日時</button>
+      <button type="button" class="type-option rounded border border-slate-300 px-3 py-2 text-sm" data-type="boolean">真偽</button>
+      <button type="button" class="type-option rounded border border-slate-300 px-3 py-2 text-sm" data-type="enum">選択肢</button>
+      <button type="button" class="type-option rounded border border-slate-300 px-3 py-2 text-sm" data-type="file">ファイル</button>
+    </div>
+    <div class="mt-4 flex justify-end">
+      <button type="button" id="close-type-modal" class="rounded border border-slate-300 px-3 py-2 text-sm">キャンセル</button>
+    </div>
+  </div>
+</div>
+
 <script id="fields-data" type="application/json">{{ fields_json | safe }}</script>
 <script>
   const fieldList = document.getElementById("field-list");
   const template = document.getElementById("field-row-template");
   const addButton = document.getElementById("add-field");
+  const typeModal = document.getElementById("type-modal");
+  const closeTypeModal = document.getElementById("close-type-modal");
   const fieldsInput = document.getElementById("fields_json");
   const initialFields = JSON.parse(document.getElementById("fields-data").textContent || "[]");
   const seenKeys = new Set();
+  const typeLabels = {
+    string: "文字列",
+    number: "数値",
+    integer: "整数",
+    datetime: "日時",
+    boolean: "真偽",
+    enum: "選択肢",
+    file: "ファイル",
+  };
 
   const defaultField = {
     key: "",
@@ -205,6 +228,12 @@
       el.checked = Boolean(value);
     } else {
       el.value = value ?? "";
+    }
+    if (name === "type") {
+      const labelEl = row.querySelector('[data-field-label="type"]');
+      if (labelEl) {
+        labelEl.textContent = typeLabels[value] || value || "-";
+      }
     }
   }
 
@@ -294,8 +323,27 @@
   }
 
   addButton.addEventListener("click", () => {
-    addRow(defaultField);
-    updateFieldsJson();
+    if (typeModal) {
+      typeModal.classList.remove("hidden");
+      typeModal.classList.add("flex");
+    }
+  });
+
+  if (closeTypeModal) {
+    closeTypeModal.addEventListener("click", () => {
+      typeModal.classList.add("hidden");
+      typeModal.classList.remove("flex");
+    });
+  }
+
+  document.querySelectorAll(".type-option").forEach((button) => {
+    button.addEventListener("click", () => {
+      const selectedType = button.dataset.type || "string";
+      addRow({ ...defaultField, type: selectedType });
+      updateFieldsJson();
+      typeModal.classList.add("hidden");
+      typeModal.classList.remove("flex");
+    });
   });
 
   if (initialFields.length > 0) {

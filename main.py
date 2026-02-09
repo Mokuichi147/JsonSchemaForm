@@ -23,7 +23,7 @@ from sqlalchemy import Column, DateTime, Integer, String, Text, create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 from tinydb import Query, TinyDB
 
-ALLOWED_TYPES = {"string", "number", "integer", "boolean", "enum", "file"}
+ALLOWED_TYPES = {"string", "number", "integer", "boolean", "enum", "file", "datetime"}
 KEY_PATTERN = re.compile(r"^[A-Za-z][A-Za-z0-9_]*$")
 
 
@@ -537,6 +537,8 @@ templates = Jinja2Templates(directory="templates")
 
 def field_input_type(field: dict[str, Any]) -> str:
     field_type = field["type"]
+    if field_type == "datetime":
+        return "text"
     if field_type == "string":
         fmt = field.get("format")
         if fmt in {"email", "url"}:
@@ -555,7 +557,10 @@ templates.env.globals["field_input_type"] = field_input_type
 
 
 def field_picker(field: dict[str, Any]) -> str:
-    if field.get("type") == "string" and field.get("format") in {"date", "datetime-local"}:
+    field_type = field.get("type")
+    if field_type == "datetime":
+        return "datetime-local"
+    if field_type == "string" and field.get("format") in {"date", "datetime-local"}:
         return field["format"]
     return ""
 
@@ -701,6 +706,8 @@ def build_property(field: dict[str, Any]) -> dict[str, Any]:
     def build_item(item_type: str) -> dict[str, Any]:
         if item_type == "file":
             return {"type": "string", "format": "binary"}
+        if item_type == "datetime":
+            return {"type": "string", "format": "datetime-local"}
         if item_type == "enum":
             return {"type": "string", "enum": field.get("enum", [])}
         payload: dict[str, Any] = {"type": item_type}
@@ -755,6 +762,8 @@ def fields_from_schema(schema: dict[str, Any], field_order: list[str]) -> list[d
         target = prop.get("items", {}) if is_array else prop
 
         field_type = target.get("type", "string")
+        if target.get("format") == "datetime-local":
+            field_type = "datetime"
         if "enum" in target:
             field_type = "enum"
         if target.get("format") == "binary":
@@ -902,7 +911,7 @@ def apply_filters(
                         break
                 continue
 
-            if field_type in {"string", "enum", "file"}:
+            if field_type in {"string", "enum", "file", "datetime"}:
                 filter_value = str(query_params.get(f"f_{key}", "")).strip()
                 if not filter_value:
                     continue
