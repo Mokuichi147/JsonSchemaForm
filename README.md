@@ -12,8 +12,6 @@
 
 ## 起動方法（uv）
 ```bash
-uv venv .venv
-source .venv/bin/activate
 uv sync --locked
 
 # 起動
