@@ -66,10 +66,12 @@
 <template id="field-row-template">
   <div class="field-row rounded border border-slate-200 bg-slate-50 p-4">
     <div class="flex items-center justify-between">
-      <div class="text-xs font-semibold text-slate-500">フィールド設定</div>
+      <div class="flex items-center gap-2 text-xs font-semibold text-slate-500">
+        <span class="drag-handle cursor-move text-sm text-slate-400">↕</span>
+        フィールド設定
+      </div>
       <div class="flex items-center gap-2">
         <button type="button" data-action="remove" class="rounded border border-slate-300 px-2 py-1 text-xs">削除</button>
-        <span class="drag-handle cursor-move text-xs text-slate-400">↕</span>
       </div>
     </div>
     <input type="hidden" data-field="key" />
