@@ -24,7 +24,7 @@
 </div>
 {% endif %}
 
-<form method="post" class="mt-6 space-y-6">
+<form method="post" action="{% if form %}/admin/forms/{{ form.id }}{% else %}/admin/forms{% endif %}" class="mt-6 space-y-6">
   <div class="rounded-lg border border-slate-200 bg-white p-5">
     <div class="grid gap-4 md:grid-cols-2">
       <div>
