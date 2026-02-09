@@ -10,6 +10,25 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ja.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        const formatter = new Intl.DateTimeFormat(undefined, {
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+        });
+        document.querySelectorAll(".js-local-dt").forEach((el) => {
+          const iso = el.dataset.iso;
+          if (!iso) return;
+          const date = new Date(iso);
+          if (Number.isNaN(date.getTime())) return;
+          el.textContent = formatter.format(date);
+        });
+      });
+    </script>
     <style>
       body {
         font-family: "BIZ UDPGothic", "Noto Sans JP", system-ui, sans-serif;

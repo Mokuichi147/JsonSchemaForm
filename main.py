@@ -572,6 +572,19 @@ def format_dt(value: Any) -> str:
 templates.env.globals["format_dt"] = format_dt
 
 
+def iso_dt(value: Any) -> str:
+    if isinstance(value, datetime):
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=timezone.utc)
+        else:
+            value = value.astimezone(timezone.utc)
+        return value.isoformat()
+    return ""
+
+
+templates.env.globals["iso_dt"] = iso_dt
+
+
 def build_query(base: dict[str, Any], **overrides: Any) -> str:
     params = {k: v for k, v in base.items() if v not in (None, "")}
     for key, value in overrides.items():

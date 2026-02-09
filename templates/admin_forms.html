@@ -36,7 +36,9 @@
         <td class="px-4 py-3">
           <a href="/f/{{ form.public_id }}" class="text-slate-700 hover:underline">/f/{{ form.public_id }}</a>
         </td>
-        <td class="px-4 py-3 text-slate-600">{{ format_dt(form.updated_at) }}</td>
+        <td class="px-4 py-3 text-slate-600">
+          <time class="js-local-dt" data-iso="{{ iso_dt(form.updated_at) }}">{{ format_dt(form.updated_at) }}</time>
+        </td>
         <td class="px-4 py-3">
           <div class="flex flex-wrap gap-2">
             <a href="/admin/forms/{{ form.id }}" class="rounded border border-slate-300 px-2 py-1 text-xs">編集</a>
