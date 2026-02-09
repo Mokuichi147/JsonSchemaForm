@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{{ title or "JsonSchemaForm" }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+    <style>
+      body {
+        font-family: "BIZ UDPGothic", "Noto Sans JP", system-ui, sans-serif;
+      }
+    </style>
+  </head>
+  <body class="min-h-screen bg-slate-50 text-slate-900">
+    <header class="border-b border-slate-200 bg-white">
+      <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+        <a href="/admin/forms" class="text-lg font-semibold">JsonSchemaForm</a>
+        <nav class="flex gap-3 text-sm text-slate-600">
+          <a href="/admin/forms" class="hover:text-slate-900">フォーム一覧</a>
+          <a href="/admin/forms/new" class="hover:text-slate-900">新規作成</a>
+        </nav>
+      </div>
+    </header>
+    <main class="mx-auto max-w-6xl px-6 py-8">
+      {% block content %}{% endblock %}
+    </main>
+  </body>
+</html>
