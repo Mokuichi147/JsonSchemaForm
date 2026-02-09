@@ -531,8 +531,10 @@ def field_input_type(field: dict[str, Any]) -> str:
     field_type = field["type"]
     if field_type == "string":
         fmt = field.get("format")
-        if fmt in {"email", "date", "url", "datetime-local"}:
+        if fmt in {"email", "url"}:
             return fmt
+        if fmt in {"date", "datetime-local"}:
+            return "text"
         return "text"
     if field_type in {"number", "integer"}:
         return "number"
@@ -542,6 +544,15 @@ def field_input_type(field: dict[str, Any]) -> str:
 
 
 templates.env.globals["field_input_type"] = field_input_type
+
+
+def field_picker(field: dict[str, Any]) -> str:
+    if field.get("type") == "string" and field.get("format") in {"date", "datetime-local"}:
+        return field["format"]
+    return ""
+
+
+templates.env.globals["field_picker"] = field_picker
 
 
 def format_dt(value: Any) -> str:
