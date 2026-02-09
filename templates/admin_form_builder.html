@@ -43,7 +43,7 @@
       <h2 class="text-lg font-semibold">フィールド</h2>
       <button type="button" id="add-field" class="rounded bg-slate-900 px-3 py-2 text-sm font-semibold text-white">フィールド追加</button>
     </div>
-    <p class="mt-2 text-sm text-slate-600">キーは英字開始・英数字とアンダースコアのみ。並び替えはドラッグ操作。</p>
+    <p class="mt-2 text-sm text-slate-600">キーは自動生成されます。並び替えはドラッグ操作。</p>
 
     <div id="field-list" class="mt-4 space-y-3"></div>
   </div>
@@ -72,14 +72,11 @@
         <span class="drag-handle cursor-move text-xs text-slate-400">↕</span>
       </div>
     </div>
-    <div class="mt-3 grid gap-3 md:grid-cols-4">
-      <div class="md:col-span-1">
-        <label class="text-xs text-slate-500">キー</label>
-        <input data-field="key" class="mt-1 w-full rounded border border-slate-300 px-2 py-1 text-sm" placeholder="example_key" />
-      </div>
+    <input type="hidden" data-field="key" />
+    <div class="mt-3 grid gap-3 md:grid-cols-3">
       <div class="md:col-span-1">
         <label class="text-xs text-slate-500">ラベル</label>
-        <input data-field="label" class="mt-1 w-full rounded border border-slate-300 px-2 py-1 text-sm" placeholder="表示名" />
+        <input data-field="label" required class="mt-1 w-full rounded border border-slate-300 px-2 py-1 text-sm" placeholder="表示名" />
       </div>
       <div>
         <label class="text-xs text-slate-500">種類</label>
@@ -151,6 +148,7 @@
   const addButton = document.getElementById("add-field");
   const fieldsInput = document.getElementById("fields_json");
   const initialFields = JSON.parse(document.getElementById("fields-data").textContent || "[]");
+  const seenKeys = new Set();
 
   const defaultField = {
     key: "",
@@ -172,6 +170,31 @@
     if (!Array.isArray(field.enum)) {
       field.enum = [];
     }
+    return field;
+  }
+
+  function randomToken() {
+    if (window.crypto && crypto.randomUUID) {
+      return crypto.randomUUID().replaceAll("-", "");
+    }
+    return Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+  }
+
+  function generateKey() {
+    return `f_${randomToken()}`;
+  }
+
+  function ensureKey(field) {
+    if (field.key) {
+      seenKeys.add(field.key);
+      return field;
+    }
+    let candidate = generateKey();
+    while (seenKeys.has(candidate)) {
+      candidate = generateKey();
+    }
+    field.key = candidate;
+    seenKeys.add(candidate);
     return field;
   }
 
@@ -253,7 +276,7 @@
 
   function addRow(field) {
     const row = template.content.firstElementChild.cloneNode(true);
-    const normalized = normalizeField(field);
+    const normalized = ensureKey(normalizeField(field));
     setValue(row, "key", normalized.key);
     setValue(row, "label", normalized.label);
     setValue(row, "type", normalized.type);

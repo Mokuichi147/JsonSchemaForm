@@ -4,6 +4,7 @@ import csv
 import io
 import os
 import re
+import secrets
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -78,6 +79,13 @@ def loads_json(value: str | None) -> Any:
 def new_ulid() -> str:
     value = ulid.new()
     return getattr(value, "str", str(value))
+
+
+def generate_field_key(existing: set[str]) -> str:
+    while True:
+        candidate = f"f_{secrets.token_hex(6)}"
+        if candidate not in existing and KEY_PATTERN.match(candidate):
+            return candidate
 
 
 def ensure_dirs() -> None:
@@ -617,13 +625,19 @@ def parse_fields_json(fields_json: str) -> tuple[list[dict[str, Any]], list[str]
 
     for index, raw in enumerate(raw_fields, start=1):
         key = str(raw.get("key", "")).strip()
+        label = str(raw.get("label", "")).strip()
+
+        if not label:
+            errors.append(f"{index}行目: ラベルは必須です")
+
         if not key:
-            continue
+            key = generate_field_key(seen_keys)
         if not KEY_PATTERN.match(key):
             errors.append(f"{index}行目: キーは英字で始まり英数字/アンダースコアのみです")
         if key in seen_keys:
             errors.append(f"{index}行目: キーが重複しています ({key})")
-        seen_keys.add(key)
+        else:
+            seen_keys.add(key)
 
         field_type = str(raw.get("type", "")).strip()
         is_array = bool(raw.get("is_array"))
@@ -650,7 +664,7 @@ def parse_fields_json(fields_json: str) -> tuple[list[dict[str, Any]], list[str]
         fields.append(
             {
                 "key": key,
-                "label": str(raw.get("label", "")).strip(),
+                "label": label,
                 "type": field_type,
                 "required": bool(raw.get("required")),
                 "description": str(raw.get("description", "")).strip(),
@@ -889,6 +903,17 @@ def csv_headers_and_rows(
     file_names: dict[str, str],
 ) -> tuple[list[str], list[list[str]]]:
     max_lengths: dict[str, int] = {}
+    header_counts: dict[str, int] = {}
+    field_headers: dict[str, str] = {}
+
+    for field in fields:
+        key = field["key"]
+        base = str(field.get("label") or "").strip() or key
+        count = header_counts.get(base, 0) + 1
+        header_counts[base] = count
+        header = base if count == 1 else f"{base}_{count}"
+        field_headers[key] = header
+
     for field in fields:
         if field["is_array"]:
             key = field["key"]
@@ -902,11 +927,12 @@ def csv_headers_and_rows(
     headers: list[str] = []
     for field in fields:
         key = field["key"]
+        base = field_headers.get(key, key)
         if field["is_array"]:
             for idx in range(max_lengths.get(key, 1)):
-                headers.append(f"{key}_{idx}")
+                headers.append(f"{base}_{idx}")
         else:
-            headers.append(key)
+            headers.append(base)
 
     rows: list[list[str]] = []
     for submission in submissions:
