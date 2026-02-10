@@ -1165,13 +1165,13 @@ async def update_form(request: Request, form_id: str, _: Any = Depends(admin_gua
 @app.post("/admin/forms/{form_id}/publish", tags=["admin"])
 async def publish_form(form_id: str, _: Any = Depends(admin_guard)) -> RedirectResponse:
     STORAGE.forms.set_status(form_id, "active")
-    return RedirectResponse(f"/admin/forms/{form_id}", status_code=303)
+    return RedirectResponse("/admin/forms", status_code=303)
 
 
 @app.post("/admin/forms/{form_id}/stop", tags=["admin"])
 async def stop_form(form_id: str, _: Any = Depends(admin_guard)) -> RedirectResponse:
     STORAGE.forms.set_status(form_id, "inactive")
-    return RedirectResponse(f"/admin/forms/{form_id}", status_code=303)
+    return RedirectResponse("/admin/forms", status_code=303)
 
 
 @app.get("/f/{public_id}", response_class=HTMLResponse, tags=["public"])
