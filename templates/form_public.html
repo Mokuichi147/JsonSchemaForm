@@ -109,6 +109,13 @@
       options.dateFormat = "Y-m-d";
       options.altInput = true;
       options.altFormat = "Y/m/d";
+    } else if (kind === "time") {
+      options.enableTime = true;
+      options.noCalendar = true;
+      options.dateFormat = "H:i";
+      options.time_24hr = true;
+      options.altInput = true;
+      options.altFormat = "H:i";
     }
     flatpickr(input, options);
   }
