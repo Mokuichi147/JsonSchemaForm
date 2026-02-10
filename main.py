@@ -14,7 +14,9 @@ from urllib.parse import urlencode
 import orjson
 import typer
 import ulid
+import base64
 from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from filelock import FileLock
@@ -529,7 +531,15 @@ def admin_guard(request: Request) -> None:
     AUTH_PROVIDER.require_admin(request)
 
 
-app = FastAPI()
+app = FastAPI(
+    openapi_tags=[
+        {"name": "admin", "description": "管理画面（HTML）"},
+        {"name": "public", "description": "公開フォーム（HTML）"},
+        {"name": "api/forms", "description": "REST API: フォーム"},
+        {"name": "api/submissions", "description": "REST API: 送信"},
+        {"name": "system", "description": "システム"},
+    ]
+)
 cli = typer.Typer(add_completion=False)
 
 templates = Jinja2Templates(directory="templates")
@@ -603,12 +613,12 @@ def build_query(base: dict[str, Any], **overrides: Any) -> str:
 templates.env.globals["build_query"] = build_query
 
 
-@app.get("/", response_class=HTMLResponse)
+@app.get("/", response_class=HTMLResponse, tags=["admin"])
 async def home(request: Request) -> HTMLResponse:
     return RedirectResponse("/admin/forms")
 
 
-@app.get("/admin/forms", response_class=HTMLResponse)
+@app.get("/admin/forms", response_class=HTMLResponse, tags=["admin"])
 async def list_forms(request: Request, _: Any = Depends(admin_guard)) -> HTMLResponse:
     forms = STORAGE.forms.list_forms()
     return templates.TemplateResponse(
@@ -617,7 +627,7 @@ async def list_forms(request: Request, _: Any = Depends(admin_guard)) -> HTMLRes
     )
 
 
-@app.get("/admin/forms/new", response_class=HTMLResponse)
+@app.get("/admin/forms/new", response_class=HTMLResponse, tags=["admin"])
 async def new_form(request: Request, _: Any = Depends(admin_guard)) -> HTMLResponse:
     return templates.TemplateResponse(
         "admin_form_builder.html",
@@ -733,6 +743,36 @@ def build_property(field: dict[str, Any]) -> dict[str, Any]:
         prop["x-placeholder"] = field["placeholder"]
 
     return prop
+
+
+def normalize_field_order(schema: dict[str, Any], field_order: list[str] | None) -> list[str]:
+    properties = list(schema.get("properties", {}).keys())
+    if not field_order:
+        return properties
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for key in field_order:
+        if key in properties and key not in seen:
+            ordered.append(key)
+            seen.add(key)
+    for key in properties:
+        if key not in seen:
+            ordered.append(key)
+    return ordered
+
+
+def sanitize_form_output(form: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": form["id"],
+        "public_id": form["public_id"],
+        "name": form.get("name", ""),
+        "description": form.get("description", ""),
+        "status": form.get("status", "inactive"),
+        "schema_json": form.get("schema_json", {}),
+        "field_order": form.get("field_order", []),
+        "created_at": to_iso(form.get("created_at", now_utc())),
+        "updated_at": to_iso(form.get("updated_at", now_utc())),
+    }
 
 
 def schema_from_fields(fields: list[dict[str, Any]]) -> tuple[dict[str, Any], list[str]]:
@@ -948,6 +988,21 @@ def apply_filters(
     return filtered
 
 
+def encode_cursor(created_at: datetime, submission_id: str) -> str:
+    value = f"{ensure_aware(created_at).isoformat()}|{submission_id}"
+    return base64.urlsafe_b64encode(value.encode("utf-8")).decode("utf-8")
+
+
+def decode_cursor(cursor: str) -> tuple[datetime, str] | None:
+    try:
+        raw = base64.urlsafe_b64decode(cursor.encode("utf-8")).decode("utf-8")
+        created_at_raw, submission_id = raw.split("|", 1)
+        created_at = datetime.fromisoformat(created_at_raw)
+        return ensure_aware(created_at), submission_id
+    except Exception:
+        return None
+
+
 def csv_headers_and_rows(
     fields: list[dict[str, Any]],
     submissions: list[dict[str, Any]],
@@ -1005,7 +1060,7 @@ def csv_headers_and_rows(
     return headers, rows
 
 
-@app.post("/admin/forms", response_class=HTMLResponse)
+@app.post("/admin/forms", response_class=HTMLResponse, tags=["admin"])
 async def create_form(request: Request, _: Any = Depends(admin_guard)) -> HTMLResponse:
     form_data = await request.form()
     name = str(form_data.get("name", "")).strip()
@@ -1048,7 +1103,7 @@ async def create_form(request: Request, _: Any = Depends(admin_guard)) -> HTMLRe
     return RedirectResponse(f"/admin/forms/{form_id}", status_code=303)
 
 
-@app.get("/admin/forms/{form_id}", response_class=HTMLResponse)
+@app.get("/admin/forms/{form_id}", response_class=HTMLResponse, tags=["admin"])
 async def edit_form(request: Request, form_id: str, _: Any = Depends(admin_guard)) -> HTMLResponse:
     form = STORAGE.forms.get_form(form_id)
     if not form:
@@ -1066,7 +1121,7 @@ async def edit_form(request: Request, form_id: str, _: Any = Depends(admin_guard
     )
 
 
-@app.post("/admin/forms/{form_id}", response_class=HTMLResponse)
+@app.post("/admin/forms/{form_id}", response_class=HTMLResponse, tags=["admin"])
 async def update_form(request: Request, form_id: str, _: Any = Depends(admin_guard)) -> HTMLResponse:
     form = STORAGE.forms.get_form(form_id)
     if not form:
@@ -1107,19 +1162,19 @@ async def update_form(request: Request, form_id: str, _: Any = Depends(admin_gua
     return RedirectResponse(f"/admin/forms/{updated['id']}", status_code=303)
 
 
-@app.post("/admin/forms/{form_id}/publish")
+@app.post("/admin/forms/{form_id}/publish", tags=["admin"])
 async def publish_form(form_id: str, _: Any = Depends(admin_guard)) -> RedirectResponse:
     STORAGE.forms.set_status(form_id, "active")
     return RedirectResponse(f"/admin/forms/{form_id}", status_code=303)
 
 
-@app.post("/admin/forms/{form_id}/stop")
+@app.post("/admin/forms/{form_id}/stop", tags=["admin"])
 async def stop_form(form_id: str, _: Any = Depends(admin_guard)) -> RedirectResponse:
     STORAGE.forms.set_status(form_id, "inactive")
     return RedirectResponse(f"/admin/forms/{form_id}", status_code=303)
 
 
-@app.get("/f/{public_id}", response_class=HTMLResponse)
+@app.get("/f/{public_id}", response_class=HTMLResponse, tags=["public"])
 async def public_form(request: Request, public_id: str) -> HTMLResponse:
     form = STORAGE.forms.get_form_by_public_id(public_id)
     if not form:
@@ -1160,7 +1215,7 @@ async def save_upload(file_obj, form_id: str) -> str:
     return file_id
 
 
-@app.post("/f/{public_id}", response_class=HTMLResponse)
+@app.post("/f/{public_id}", response_class=HTMLResponse, tags=["public"])
 async def submit_form(request: Request, public_id: str) -> HTMLResponse:
     form = STORAGE.forms.get_form_by_public_id(public_id)
     if not form:
@@ -1254,7 +1309,7 @@ async def submit_form(request: Request, public_id: str) -> HTMLResponse:
     )
 
 
-@app.get("/admin/forms/{form_id}/submissions", response_class=HTMLResponse)
+@app.get("/admin/forms/{form_id}/submissions", response_class=HTMLResponse, tags=["admin"])
 async def list_submissions(request: Request, form_id: str, _: Any = Depends(admin_guard)) -> HTMLResponse:
     form = STORAGE.forms.get_form(form_id)
     if not form:
@@ -1309,7 +1364,7 @@ async def list_submissions(request: Request, form_id: str, _: Any = Depends(admi
     )
 
 
-@app.post("/admin/forms/{form_id}/submissions/{submission_id}/delete")
+@app.post("/admin/forms/{form_id}/submissions/{submission_id}/delete", tags=["admin"])
 async def delete_submission(
     form_id: str, submission_id: str, _: Any = Depends(admin_guard)
 ) -> RedirectResponse:
@@ -1317,7 +1372,7 @@ async def delete_submission(
     return RedirectResponse(f"/admin/forms/{form_id}/submissions", status_code=303)
 
 
-@app.get("/admin/forms/{form_id}/export")
+@app.get("/admin/forms/{form_id}/export", tags=["admin"])
 async def export_submissions(request: Request, form_id: str, _: Any = Depends(admin_guard)) -> PlainTextResponse:
     form = STORAGE.forms.get_form(form_id)
     if not form:
@@ -1349,7 +1404,7 @@ async def export_submissions(request: Request, form_id: str, _: Any = Depends(ad
     )
 
 
-@app.get("/files/{file_id}")
+@app.get("/files/{file_id}", tags=["public"])
 async def download_file(file_id: str) -> FileResponse:
     file_meta = STORAGE.files.get_file(file_id)
     if not file_meta:
@@ -1360,9 +1415,144 @@ async def download_file(file_id: str) -> FileResponse:
     return FileResponse(path, filename=file_meta.get("original_name") or file_id)
 
 
-@app.get("/healthz")
+@app.get("/healthz", tags=["system"])
 async def healthz() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/api/forms", tags=["api/forms"])
+async def api_list_forms() -> JSONResponse:
+    forms = STORAGE.forms.list_forms()
+    return JSONResponse([sanitize_form_output(form) for form in forms])
+
+
+@app.post("/api/forms", tags=["api/forms"])
+async def api_create_form(request: Request) -> JSONResponse:
+    payload = await request.json()
+    name = str(payload.get("name", "")).strip()
+    description = str(payload.get("description", "")).strip()
+    schema = payload.get("schema_json") or {}
+    if not isinstance(schema, dict):
+        raise HTTPException(status_code=400, detail="schema_jsonが不正です")
+    if not name:
+        raise HTTPException(status_code=400, detail="nameは必須です")
+    field_order = normalize_field_order(schema, payload.get("field_order"))
+
+    form_id = new_ulid()
+    public_id = new_ulid()
+    now = now_utc()
+    STORAGE.forms.create_form(
+        {
+            "id": form_id,
+            "public_id": public_id,
+            "name": name,
+            "description": description,
+            "status": payload.get("status", "inactive"),
+            "schema_json": schema,
+            "field_order": field_order,
+            "created_at": now,
+            "updated_at": now,
+        }
+    )
+    form = STORAGE.forms.get_form(form_id)
+    return JSONResponse(sanitize_form_output(form or {}))
+
+
+@app.put("/api/forms/{form_id}", tags=["api/forms"])
+async def api_update_form(form_id: str, request: Request) -> JSONResponse:
+    form = STORAGE.forms.get_form(form_id)
+    if not form:
+        raise HTTPException(status_code=404, detail="フォームが見つかりません")
+    payload = await request.json()
+    updates: dict[str, Any] = {}
+    if "name" in payload:
+        name = str(payload.get("name", "")).strip()
+        if not name:
+            raise HTTPException(status_code=400, detail="nameは必須です")
+        updates["name"] = name
+    if "description" in payload:
+        updates["description"] = str(payload.get("description", "")).strip()
+    if "schema_json" in payload:
+        schema = payload.get("schema_json")
+        if not isinstance(schema, dict):
+            raise HTTPException(status_code=400, detail="schema_jsonが不正です")
+        updates["schema_json"] = schema
+        updates["field_order"] = normalize_field_order(schema, payload.get("field_order"))
+    if "status" in payload:
+        updates["status"] = str(payload.get("status") or "inactive")
+    updates["updated_at"] = now_utc()
+    updated = STORAGE.forms.update_form(form_id, updates)
+    return JSONResponse(sanitize_form_output(updated))
+
+
+@app.post("/api/public/forms/{public_id}/submissions", tags=["api/submissions"])
+async def api_submit_form(public_id: str, request: Request) -> JSONResponse:
+    form = STORAGE.forms.get_form_by_public_id(public_id)
+    if not form:
+        raise HTTPException(status_code=404, detail="フォームが見つかりません")
+    if form.get("status") != "active":
+        raise HTTPException(status_code=400, detail="このフォームは停止中です")
+    payload = await request.json()
+    data = payload.get("data_json", payload)
+    if not isinstance(data, dict):
+        raise HTTPException(status_code=400, detail="data_jsonが不正です")
+
+    validator = Draft7Validator(form["schema_json"])
+    errors = sorted(validator.iter_errors(data), key=lambda err: list(err.path))
+    if errors:
+        raise HTTPException(status_code=400, detail="バリデーションに失敗しました")
+
+    submission_id = new_ulid()
+    created_at = now_utc()
+    STORAGE.submissions.create_submission(
+        {"id": submission_id, "form_id": form["id"], "data_json": data, "created_at": created_at}
+    )
+    return JSONResponse({"submission_id": submission_id, "created_at": to_iso(created_at)})
+
+
+@app.get("/api/forms/{form_id}/submissions", tags=["api/submissions"])
+async def api_list_submissions(request: Request, form_id: str) -> JSONResponse:
+    form = STORAGE.forms.get_form(form_id)
+    if not form:
+        raise HTTPException(status_code=404, detail="フォームが見つかりません")
+    fields = fields_from_schema(form["schema_json"], form.get("field_order", []))
+    submissions = STORAGE.submissions.list_submissions(form_id)
+
+    filtered = apply_filters(submissions, fields, dict(request.query_params))
+    filtered.sort(key=lambda item: (item["created_at"], item["id"]), reverse=True)
+
+    cursor_raw = request.query_params.get("cursor")
+    limit = int(request.query_params.get("limit", 50))
+    if cursor_raw:
+        cursor = decode_cursor(cursor_raw)
+        if cursor:
+            cursor_dt, cursor_id = cursor
+            filtered = [
+                item
+                for item in filtered
+                if (ensure_aware(item["created_at"]) < cursor_dt)
+                or (
+                    ensure_aware(item["created_at"]) == cursor_dt and item["id"] < cursor_id
+                )
+            ]
+        else:
+            raise HTTPException(status_code=400, detail="cursorが不正です")
+
+    page_items = filtered[:limit]
+    response_items = [
+        {
+            "id": item["id"],
+            "form_id": item["form_id"],
+            "data_json": item.get("data_json", {}),
+            "created_at": to_iso(item["created_at"]),
+        }
+        for item in page_items
+    ]
+    headers: dict[str, str] = {}
+    if len(page_items) == limit:
+        last = page_items[-1]
+        headers["X-Next-Cursor"] = encode_cursor(last["created_at"], last["id"])
+    return JSONResponse(response_items, headers=headers)
 
 
 def run_server(host: str | None, port: int | None) -> None:

@@ -9,6 +9,7 @@
 - CSV/TSVエクスポート（フィルタ結果のみ）
 - ファイルアップロード（ローカル保存）
 - 保存先の切替（SQLite/JSONファイル）
+- REST API（フォーム作成/更新・送信・一覧取得）
 
 ## 起動方法（uv）
 ```bash
@@ -24,6 +25,25 @@ uv run main.py --host 127.0.0.1 --port 9000
 依存関係を更新したい場合は `uv lock` を実行してください。
 
 ブラウザで `http://localhost:8000/admin/forms` を開いてください。
+
+## REST API（抜粋）
+```bash
+# フォーム一覧
+curl http://localhost:8000/api/forms
+
+# フォーム作成（schema_json直接）
+curl -X POST http://localhost:8000/api/forms \\
+  -H 'Content-Type: application/json' \\
+  -d '{"name":"アンケート","schema_json":{"type":"object","properties":{"name":{"type":"string"}}}}'
+
+# フォーム送信（public_id）
+curl -X POST http://localhost:8000/api/public/forms/<public_id>/submissions \\
+  -H 'Content-Type: application/json' \\
+  -d '{"data_json":{"name":"太郎"}}'
+
+# 送信一覧（cursor）
+curl -i "http://localhost:8000/api/forms/<form_id>/submissions?limit=50"
+```
 
 ## 環境変数
 - `STORAGE_BACKEND=sqlite|json`
