@@ -7,7 +7,11 @@
   </div>
   {% if form %}
   <div class="flex flex-wrap gap-2 text-sm">
-    <span class="rounded-full bg-slate-200 px-3 py-1">状態: {{ "公開" if form.status == "active" else "停止" }}</span>
+    {% if form.status == "active" %}
+    <span class="whitespace-nowrap rounded-full bg-emerald-100 px-3 py-1 text-emerald-800">公開中</span>
+    {% else %}
+    <span class="whitespace-nowrap rounded-full bg-slate-200 px-3 py-1 text-slate-700">停止中</span>
+    {% endif %}
     <a href="/f/{{ form.public_id }}" class="rounded border border-slate-300 px-3 py-1">入力ページ</a>
     <a href="/admin/forms/{{ form.id }}/submissions" class="rounded border border-slate-300 px-3 py-1">送信一覧</a>
   </div>
