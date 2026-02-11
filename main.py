@@ -192,6 +192,8 @@ class FormRepository(Protocol):
 
     def set_status(self, form_id: str, status: str) -> None: ...
 
+    def delete_form(self, form_id: str) -> None: ...
+
 
 class SubmissionRepository(Protocol):
     def list_submissions(self, form_id: str) -> list[dict[str, Any]]: ...
@@ -309,6 +311,13 @@ class SQLiteFormRepo:
             row.status = status
             row.updated_at = now_utc()
             session.commit()
+
+    def delete_form(self, form_id: str) -> None:
+        with self._Session() as session:
+            row = session.get(FormModel, form_id)
+            if row:
+                session.delete(row)
+                session.commit()
 
     @staticmethod
     def _to_dict(row: FormModel) -> dict[str, Any]:
@@ -469,6 +478,10 @@ class JSONFormRepo(JSONRepoBase):
             item["status"] = status
             item["updated_at"] = to_iso(now_utc())
             table.update(item, Query().id == form_id)
+
+    def delete_form(self, form_id: str) -> None:
+        with self._db() as db:
+            db.table("forms").remove(Query().id == form_id)
 
     @staticmethod
     def _to_record(form: dict[str, Any], partial: bool = False) -> dict[str, Any]:
@@ -1333,6 +1346,12 @@ async def publish_form(form_id: str, _: Any = Depends(admin_guard)) -> RedirectR
 @app.post("/admin/forms/{form_id}/stop", tags=["admin"])
 async def stop_form(form_id: str, _: Any = Depends(admin_guard)) -> RedirectResponse:
     STORAGE.forms.set_status(form_id, "inactive")
+    return RedirectResponse("/admin/forms", status_code=303)
+
+
+@app.post("/admin/forms/{form_id}/delete", tags=["admin"])
+async def delete_form(form_id: str, _: Any = Depends(admin_guard)) -> RedirectResponse:
+    STORAGE.forms.delete_form(form_id)
     return RedirectResponse("/admin/forms", status_code=303)
 
 
