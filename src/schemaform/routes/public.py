@@ -7,10 +7,10 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse
 from jsonschema import Draft7Validator
 
-from jsonschemaform.fields import clean_empty_recursive
-from jsonschemaform.filters import normalize_number, parse_bool
-from jsonschemaform.schema import fields_from_schema
-from jsonschemaform.utils import new_ulid, now_utc
+from schemaform.fields import clean_empty_recursive
+from schemaform.filters import normalize_number, parse_bool
+from schemaform.schema import fields_from_schema
+from schemaform.utils import new_ulid, now_utc
 
 router = APIRouter()
 

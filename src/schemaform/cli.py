@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import typer
 
-from jsonschemaform.app import create_app
-from jsonschemaform.config import Settings
+from schemaform.app import create_app
+from schemaform.config import Settings
 
 cli = typer.Typer(add_completion=False)
 

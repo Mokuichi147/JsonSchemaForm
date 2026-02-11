@@ -7,13 +7,13 @@ from urllib.parse import urlencode
 from fastapi import FastAPI
 from fastapi.templating import Jinja2Templates
 
-from jsonschemaform.auth import get_auth_provider
-from jsonschemaform.config import BASE_DIR, Settings, ensure_dirs
-from jsonschemaform.routes.admin import router as admin_router
-from jsonschemaform.routes.api import router as api_router
-from jsonschemaform.routes.public import router as public_router
-from jsonschemaform.routes.submissions import router as submissions_router
-from jsonschemaform.storage import init_storage
+from schemaform.auth import get_auth_provider
+from schemaform.config import BASE_DIR, Settings, ensure_dirs
+from schemaform.routes.admin import router as admin_router
+from schemaform.routes.api import router as api_router
+from schemaform.routes.public import router as public_router
+from schemaform.routes.submissions import router as submissions_router
+from schemaform.storage import init_storage
 
 
 def field_input_type(field: dict[str, Any]) -> str:

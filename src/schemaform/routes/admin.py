@@ -5,12 +5,12 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
-from jsonschemaform.schema import (
+from schemaform.schema import (
     fields_from_schema,
     parse_fields_json,
     schema_from_fields,
 )
-from jsonschemaform.utils import dumps_json, new_short_id, new_ulid, now_utc
+from schemaform.utils import dumps_json, new_short_id, new_ulid, now_utc
 
 router = APIRouter()
 

@@ -4,8 +4,8 @@ from typing import Any
 
 import orjson
 
-from jsonschemaform.config import ALLOWED_TYPES, KEY_PATTERN
-from jsonschemaform.utils import generate_field_key, now_utc, to_iso
+from schemaform.config import ALLOWED_TYPES, KEY_PATTERN
+from schemaform.utils import generate_field_key, now_utc, to_iso
 
 
 def parse_fields_json(fields_json: str) -> tuple[list[dict[str, Any]], list[str]]:

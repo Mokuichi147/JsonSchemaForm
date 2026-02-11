@@ -6,12 +6,12 @@ import io
 from datetime import datetime, timezone
 from typing import Any, Iterable
 
-from jsonschemaform.fields import (
+from schemaform.fields import (
     flatten_fields,
     format_array_group_value,
     get_nested_value,
 )
-from jsonschemaform.protocols import FileRepository
+from schemaform.protocols import FileRepository
 
 
 def parse_bool(value: Any) -> bool:

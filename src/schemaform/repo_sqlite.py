@@ -6,8 +6,8 @@ from typing import Any
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from jsonschemaform.models import Base, FileModel, FormModel, SubmissionModel
-from jsonschemaform.utils import dumps_json, loads_json, now_utc
+from schemaform.models import Base, FileModel, FormModel, SubmissionModel
+from schemaform.utils import dumps_json, loads_json, now_utc
 
 
 class SQLiteFormRepo:

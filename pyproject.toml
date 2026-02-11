@@ -1,5 +1,5 @@
 [project]
-name = "jsonschemaform"
+name = "schemaform"
 version = "0.1.0"
 description = "フォーム作成・収集サービス"
 readme = "README.md"
@@ -21,7 +21,7 @@ dependencies = [
 ]
 
 [project.scripts]
-jsonschemaform = "jsonschemaform.cli:cli"
+schemaform = "schemaform.cli:cli"
 
 [build-system]
 requires = ["uv_build>=0.7.2,<0.8"]

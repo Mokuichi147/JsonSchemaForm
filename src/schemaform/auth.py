@@ -4,7 +4,7 @@ from typing import Protocol
 
 from fastapi import HTTPException, Request
 
-from jsonschemaform.config import Settings
+from schemaform.config import Settings
 
 
 class AuthProvider(Protocol):

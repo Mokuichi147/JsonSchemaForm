@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from jsonschemaform.utils import dumps_json
+from schemaform.utils import dumps_json
 
 
 def flatten_fields(

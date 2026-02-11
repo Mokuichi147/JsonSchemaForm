@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from jsonschemaform.config import Settings
-from jsonschemaform.protocols import Storage
-from jsonschemaform.repo_json import JSONStorage
-from jsonschemaform.repo_sqlite import SQLiteStorage
+from schemaform.config import Settings
+from schemaform.protocols import Storage
+from schemaform.repo_json import JSONStorage
+from schemaform.repo_sqlite import SQLiteStorage
 
 
 def init_storage(settings: Settings) -> Storage:

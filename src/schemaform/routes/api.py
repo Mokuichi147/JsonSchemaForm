@@ -5,18 +5,18 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 
-from jsonschemaform.filters import (
+from schemaform.filters import (
     apply_filters,
     decode_cursor,
     encode_cursor,
     ensure_aware,
 )
-from jsonschemaform.schema import (
+from schemaform.schema import (
     fields_from_schema,
     normalize_field_order,
     sanitize_form_output,
 )
-from jsonschemaform.utils import new_short_id, new_ulid, now_utc, to_iso
+from schemaform.utils import new_short_id, new_ulid, now_utc, to_iso
 
 router = APIRouter()
 

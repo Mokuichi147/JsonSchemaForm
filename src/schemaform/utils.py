@@ -7,7 +7,7 @@ from typing import Any
 import orjson
 import ulid
 
-from jsonschemaform.config import KEY_PATTERN
+from schemaform.config import KEY_PATTERN
 
 
 def now_utc() -> datetime:

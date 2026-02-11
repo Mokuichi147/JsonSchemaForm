@@ -1,4 +1,4 @@
-# JsonSchemaForm
+# SchemaForm
 
 非プログラマでもUIでフォームを作成し、公開URLで入力を受け付ける小さなフォームサービスです。
 
@@ -16,10 +16,10 @@
 uv sync --locked
 
 # 起動
-uv run jsonschemaform
+uv run schemaform
 
 # host/port を指定する場合
-uv run jsonschemaform --host 127.0.0.1 --port 9000
+uv run schemaform --host 127.0.0.1 --port 9000
 ```
 
 依存関係を更新したい場合は `uv lock` を実行してください。

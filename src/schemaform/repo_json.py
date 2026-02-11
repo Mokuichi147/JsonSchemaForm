@@ -8,7 +8,7 @@ from typing import Any, Iterable
 from filelock import FileLock
 from tinydb import Query, TinyDB
 
-from jsonschemaform.utils import now_utc, parse_dt, to_iso
+from schemaform.utils import now_utc, parse_dt, to_iso
 
 
 class JSONRepoBase:
