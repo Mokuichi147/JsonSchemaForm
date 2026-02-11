@@ -16,10 +16,10 @@
 uv sync --locked
 
 # 起動
-uv run main.py
+uv run jsonschemaform
 
 # host/port を指定する場合
-uv run main.py --host 127.0.0.1 --port 9000
+uv run jsonschemaform --host 127.0.0.1 --port 9000
 ```
 
 依存関係を更新したい場合は `uv lock` を実行してください。
