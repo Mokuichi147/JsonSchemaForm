@@ -49,6 +49,26 @@ def flatten_fields(
     return result
 
 
+def _build_key_label_map(children: list[dict[str, Any]]) -> dict[str, str]:
+    mapping: dict[str, str] = {}
+    for child in children:
+        mapping[child["key"]] = child.get("label") or child["key"]
+    return mapping
+
+
+def format_array_group_value(value: Any, children: list[dict[str, Any]]) -> str:
+    if not value or not isinstance(value, list):
+        return ""
+    key_map = _build_key_label_map(children)
+    result: list[dict[str, Any]] = []
+    for item in value:
+        if isinstance(item, dict):
+            result.append({key_map.get(k, k): v for k, v in item.items()})
+        else:
+            result.append(item)
+    return dumps_json(result)
+
+
 def get_nested_value(data: dict[str, Any], dotted_key: str) -> Any:
     parts = dotted_key.split(".")
     current: Any = data
@@ -1184,7 +1204,7 @@ def csv_headers_and_rows(
             value = get_nested_value(data, fk)
             is_file = field["type"] == "file"
             if field.get("type") == "group" and field.get("is_array"):
-                row.append(dumps_json(value) if value else "")
+                row.append(format_array_group_value(value, field.get("children", [])))
             elif field.get("is_array"):
                 items = value if isinstance(value, list) else []
                 max_len = max_lengths.get(fk, 1)
@@ -1510,7 +1530,7 @@ async def list_submissions(request: Request, form_id: str, _: Any = Depends(admi
             fk = ff["flat_key"]
             value = get_nested_value(data, fk)
             if ff.get("type") == "group" and ff.get("is_array"):
-                row_values.append(dumps_json(value) if value else "")
+                row_values.append(format_array_group_value(value, ff.get("children", [])))
             else:
                 row_values.append(
                     value_to_text(value, file_names, ff["type"] == "file")
