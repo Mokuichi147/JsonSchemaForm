@@ -24,7 +24,7 @@
       <template>
         <div class="array-group-entry rounded border border-slate-100 bg-slate-50 p-3">
           <div class="mb-2 flex justify-end">
-            <button type="button" class="remove-group-item rounded border border-slate-300 px-2 py-1 text-xs" {% if inactive %}disabled{% endif %}>削除</button>
+            <button type="button" class="remove-group-item rounded border border-rose-300 px-2 py-1 text-xs text-rose-600" {% if inactive %}disabled{% endif %}>削除</button>
           </div>
           <div class="space-y-3">
             {% for child in field.children %}
@@ -95,7 +95,7 @@
               {% else %}
               <input type="text" name="{{ form_name }}" placeholder="{{ field.placeholder }}" class="w-full rounded border border-slate-300 px-2 py-2 text-sm" {% if picker %}data-picker="{{ picker }}"{% endif %} {% if inactive %}disabled{% endif %} />
               {% endif %}
-              <button type="button" class="remove-item rounded border border-slate-300 px-2 py-1 text-xs" {% if inactive %}disabled{% endif %}>削除</button>
+              <button type="button" class="remove-item rounded border border-rose-300 px-2 py-1 text-xs text-rose-600" {% if inactive %}disabled{% endif %}>削除</button>
             </div>
           </template>
         </div>
