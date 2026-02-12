@@ -5,8 +5,9 @@
 {% set form_name = prefix ~ field.key %}
 {% set picker = field_picker(field) %}
 {% set is_nested = prefix != "" %}
-{% set group_container_class = "rounded border border-slate-200 bg-white p-3" if not is_nested else "border-l-2 border-slate-200 pl-3 pr-0 py-2" %}
-{% set array_entry_class = "rounded border border-slate-100 bg-slate-50 px-2 pt-2 pb-2" if not is_nested else "border-l border-slate-200 pl-2 pr-0 py-1" %}
+{% set nested_indent_class = "border-l-2 border-slate-200 pl-3 pr-0 pt-2 pb-0" %}
+{% set group_container_class = "rounded border border-slate-200 bg-white p-3" if not is_nested else nested_indent_class %}
+{% set array_entry_class = "rounded border border-slate-100 bg-slate-50 px-2 pt-2 pb-0" if not is_nested else nested_indent_class %}
 
 {% if field.type == "group" %}
   {% if field.is_array %}
@@ -33,7 +34,7 @@
             {{ render_field(child, form_name ~ ".__INDEX__.", inactive) }}
             {% endfor %}
           </div>
-          <div class="mt-2 flex items-center justify-end gap-2">
+          <div class="mt-2 pb-2 flex items-center justify-end gap-2">
             <span class="group-item-order text-[11px] text-slate-500"></span>
             <button type="button" class="remove-group-item rounded border border-rose-300 px-2 py-1 text-xs text-rose-600" {% if inactive %}disabled{% endif %}>削除</button>
           </div>
