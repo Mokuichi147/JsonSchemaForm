@@ -203,18 +203,21 @@
     flatpickr(input, options);
   }
 
-  document.querySelectorAll("input[data-picker]").forEach(initPicker);
-
-  document.querySelectorAll(".array-field").forEach((block) => {
+  function initArrayFieldBlock(block) {
+    if (!block || block.dataset.sfArrayInit === "1") return;
+    block.dataset.sfArrayInit = "1";
     const template = block.querySelector("template");
     const list = block.querySelector(".array-items");
     const addButton = block.querySelector(".add-item");
     const picker = block.dataset.picker;
+    if (!template || !list || !addButton) return;
 
     function addItem() {
       const node = template.content.firstElementChild.cloneNode(true);
       const removeButton = node.querySelector(".remove-item");
-      removeButton.addEventListener("click", () => node.remove());
+      if (removeButton) {
+        removeButton.addEventListener("click", () => node.remove());
+      }
       if (picker) {
         const input = node.querySelector("input[data-picker]");
         initPicker(input);
@@ -223,16 +226,17 @@
     }
 
     addButton.addEventListener("click", addItem);
-
     addItem();
-  });
+  }
 
-  document.querySelectorAll(".array-group").forEach((block) => {
-    const prefix = block.dataset.prefix;
+  function initArrayGroupBlock(block) {
+    if (!block || block.dataset.sfArrayInit === "1") return;
+    block.dataset.sfArrayInit = "1";
     const template = block.querySelector("template");
     const list = block.querySelector(".array-group-items");
     const addButton = block.querySelector(".add-group-item");
     let counter = 0;
+    if (!template || !list || !addButton) return;
 
     function refreshGroupItemOrder() {
       const entries = Array.from(list.children).filter((el) => el.classList.contains("array-group-entry"));
@@ -244,39 +248,34 @@
       });
     }
 
+    function bootstrapNode(node) {
+      node.querySelectorAll("input[data-picker]").forEach(initPicker);
+      node.querySelectorAll(".array-field").forEach(initArrayFieldBlock);
+      node.querySelectorAll(".array-group").forEach(initArrayGroupBlock);
+    }
+
     function addGroupItem() {
       const node = template.content.firstElementChild.cloneNode(true);
       const idx = counter++;
       node.innerHTML = node.innerHTML.replaceAll("__INDEX__", String(idx));
       const removeButton = node.querySelector(".remove-group-item");
-      removeButton.addEventListener("click", () => {
-        node.remove();
-        refreshGroupItemOrder();
-      });
-      node.querySelectorAll("input[data-picker]").forEach(initPicker);
-      node.querySelectorAll(".array-field").forEach((af) => {
-        const afTemplate = af.querySelector("template");
-        const afList = af.querySelector(".array-items");
-        const afAdd = af.querySelector(".add-item");
-        const afPicker = af.dataset.picker;
-        function addArrayItem() {
-          const n = afTemplate.content.firstElementChild.cloneNode(true);
-          n.querySelector(".remove-item").addEventListener("click", () => n.remove());
-          if (afPicker) {
-            const inp = n.querySelector("input[data-picker]");
-            initPicker(inp);
-          }
-          afList.appendChild(n);
-        }
-        afAdd.addEventListener("click", addArrayItem);
-        addArrayItem();
-      });
+      if (removeButton) {
+        removeButton.addEventListener("click", () => {
+          node.remove();
+          refreshGroupItemOrder();
+        });
+      }
+      bootstrapNode(node);
       list.appendChild(node);
       refreshGroupItemOrder();
     }
 
     addButton.addEventListener("click", addGroupItem);
     addGroupItem();
-  });
+  }
+
+  document.querySelectorAll("input[data-picker]").forEach(initPicker);
+  document.querySelectorAll(".array-field").forEach(initArrayFieldBlock);
+  document.querySelectorAll(".array-group").forEach(initArrayGroupBlock);
 </script>
 {% endblock %}
