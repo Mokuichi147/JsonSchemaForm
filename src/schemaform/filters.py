@@ -92,16 +92,61 @@ def apply_filters(
     submissions: list[dict[str, Any]],
     fields: list[dict[str, Any]],
     query_params: dict[str, Any],
+    file_names: dict[str, str] | None = None,
 ) -> list[dict[str, Any]]:
     q = str(query_params.get("q", "")).strip().lower()
     from_dt = parse_query_datetime(query_params.get("submitted_from"))
     to_dt = parse_query_datetime(query_params.get("submitted_to"))
     flat_fields = flatten_fields(fields)
+    resolved_file_names = file_names or {}
+
+    def iter_searchable_values(field_list: list[dict[str, Any]], current_data: Any) -> Iterable[str]:
+        if not isinstance(current_data, dict):
+            return
+        for field in field_list:
+            key = field.get("key")
+            if not key or key not in current_data:
+                continue
+            value = current_data.get(key)
+            field_type = field.get("type")
+            is_array = bool(field.get("is_array"))
+
+            if field_type == "group":
+                children = field.get("children") or []
+                if is_array:
+                    if isinstance(value, list):
+                        for item in value:
+                            yield from iter_searchable_values(children, item)
+                else:
+                    yield from iter_searchable_values(children, value)
+                continue
+
+            if field_type == "file":
+                if is_array:
+                    if isinstance(value, list):
+                        for item in value:
+                            if isinstance(item, str):
+                                file_name = resolved_file_names.get(item, "")
+                                if file_name:
+                                    yield file_name
+                elif isinstance(value, str):
+                    file_name = resolved_file_names.get(value, "")
+                    if file_name:
+                        yield file_name
+                continue
+
+            if is_array:
+                if isinstance(value, list):
+                    for item in value:
+                        if item not in (None, ""):
+                            yield str(item)
+            elif value not in (None, ""):
+                yield str(value)
 
     def matches_free_text(data: dict[str, Any]) -> bool:
         if not q:
             return True
-        combined = " ".join(str(value) for value in data.values()).lower()
+        combined = " ".join(iter_searchable_values(fields, data)).lower()
         return q in combined
 
     filtered: list[dict[str, Any]] = []
@@ -132,13 +177,22 @@ def apply_filters(
                 filter_value = str(query_params.get(param_key, "")).strip()
                 if not filter_value:
                     continue
+                filter_value_lower = filter_value.lower()
                 items = value or []
                 if field_type == "enum":
                     if filter_value not in items:
                         ok = False
                         break
+                elif field_type == "file":
+                    if not any(
+                        filter_value_lower in resolved_file_names.get(item, "").lower()
+                        for item in items
+                        if isinstance(item, str)
+                    ):
+                        ok = False
+                        break
                 else:
-                    if not any(filter_value.lower() in str(item).lower() for item in items):
+                    if not any(filter_value_lower in str(item).lower() for item in items):
                         ok = False
                         break
                 continue
@@ -149,6 +203,11 @@ def apply_filters(
                     continue
                 if field_type == "enum":
                     if str(value) != filter_value:
+                        ok = False
+                        break
+                elif field_type == "file":
+                    file_name = resolved_file_names.get(str(value), "")
+                    if filter_value.lower() not in file_name.lower():
                         ok = False
                         break
                 else:

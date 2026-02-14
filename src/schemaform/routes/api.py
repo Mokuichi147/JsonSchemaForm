@@ -7,9 +7,11 @@ from fastapi.responses import JSONResponse
 
 from schemaform.filters import (
     apply_filters,
+    collect_file_ids,
     decode_cursor,
     encode_cursor,
     ensure_aware,
+    resolve_file_names,
 )
 from schemaform.schema import (
     fields_from_schema,
@@ -125,8 +127,12 @@ async def api_list_submissions(request: Request, form_id: str) -> JSONResponse:
         raise HTTPException(status_code=404, detail="フォームが見つかりません")
     fields = fields_from_schema(form["schema_json"], form.get("field_order", []))
     submissions = storage.submissions.list_submissions(form_id)
+    file_ids = collect_file_ids(submissions, fields)
+    file_names = resolve_file_names(storage.files, file_ids)
 
-    filtered = apply_filters(submissions, fields, dict(request.query_params))
+    filtered = apply_filters(
+        submissions, fields, dict(request.query_params), file_names=file_names
+    )
     filtered.sort(key=lambda item: (item["created_at"], item["id"]), reverse=True)
 
     cursor_raw = request.query_params.get("cursor")

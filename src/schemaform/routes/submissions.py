@@ -38,8 +38,12 @@ async def list_submissions(request: Request, form_id: str, _: Any = Depends(admi
 
     fields = fields_from_schema(form["schema_json"], form.get("field_order", []))
     submissions = storage.submissions.list_submissions(form_id)
+    file_ids = collect_file_ids(submissions, fields)
+    file_names = resolve_file_names(storage.files, file_ids)
 
-    filtered = apply_filters(submissions, fields, dict(request.query_params))
+    filtered = apply_filters(
+        submissions, fields, dict(request.query_params), file_names=file_names
+    )
 
     page = int(request.query_params.get("page", 1))
     page_size = int(request.query_params.get("page_size", 50))
@@ -49,9 +53,6 @@ async def list_submissions(request: Request, form_id: str, _: Any = Depends(admi
     page_items = filtered[start:end]
 
     flat_fields = flatten_fields(fields)
-
-    file_ids = collect_file_ids(page_items, fields)
-    file_names = resolve_file_names(storage.files, file_ids)
 
     display_rows = []
     for item in page_items:
@@ -111,10 +112,11 @@ async def export_submissions(request: Request, form_id: str, _: Any = Depends(ad
 
     fields = fields_from_schema(form["schema_json"], form.get("field_order", []))
     submissions = storage.submissions.list_submissions(form_id)
-    filtered = apply_filters(submissions, fields, dict(request.query_params))
-
-    file_ids = collect_file_ids(filtered, fields)
+    file_ids = collect_file_ids(submissions, fields)
     file_names = resolve_file_names(storage.files, file_ids)
+    filtered = apply_filters(
+        submissions, fields, dict(request.query_params), file_names=file_names
+    )
 
     headers, rows = csv_headers_and_rows(fields, filtered, file_names)
 
