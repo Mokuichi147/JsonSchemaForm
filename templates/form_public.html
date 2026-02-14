@@ -4,6 +4,7 @@
 {% macro render_field(field, prefix, inactive, depth=0) %}
 {% set form_name = prefix ~ field.key %}
 {% set picker = field_picker(field) %}
+{% set index_token = "__INDEX_D" ~ depth ~ "__" %}
 {% set depth_mod = depth % 6 %}
 {% if depth_mod == 0 %}
   {% set indent_border_color = "border-slate-300" %}
@@ -41,7 +42,7 @@
     {% if field.description %}
     <div class="mt-1 text-xs leading-relaxed text-slate-500">{{ field.description }}</div>
     {% endif %}
-    <div class="array-group mt-2" data-prefix="{{ form_name }}">
+    <div class="array-group mt-2" data-prefix="{{ form_name }}" data-index-token="{{ index_token }}">
       <div class="array-group-items space-y-3"></div>
       <div class="mt-2 flex justify-start">
         <button type="button" class="add-group-item rounded border border-slate-300 px-3 py-1 text-xs" {% if inactive %}disabled{% endif %}>追加</button>
@@ -50,7 +51,7 @@
         <div class="array-group-entry {{ array_entry_class }}">
           <div class="space-y-2">
             {% for child in field.children %}
-            {{ render_field(child, form_name ~ ".__INDEX__.", inactive, depth + 1) }}
+            {{ render_field(child, form_name ~ "." ~ index_token ~ ".", inactive, depth + 1) }}
             {% endfor %}
           </div>
           <div class="group-item-meta mt-2 pb-2 pr-2 flex items-center justify-end gap-2">
@@ -270,6 +271,7 @@
     const template = block.querySelector("template");
     const list = block.querySelector(".array-group-items");
     const addButton = block.querySelector(".add-group-item");
+    const indexToken = block.dataset.indexToken || "__INDEX__";
     let counter = 0;
     if (!template || !list || !addButton) return;
 
@@ -293,7 +295,7 @@
     function addGroupItem() {
       const node = template.content.firstElementChild.cloneNode(true);
       const idx = counter++;
-      node.innerHTML = node.innerHTML.replaceAll("__INDEX__", String(idx));
+      node.innerHTML = node.innerHTML.replaceAll(indexToken, String(idx));
       const meta = Array.from(node.children).find((el) => el.classList.contains("group-item-meta"));
       const removeButton = meta ? meta.querySelector(".remove-group-item") : null;
       if (removeButton) {
