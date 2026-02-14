@@ -31,7 +31,7 @@
 {% if field.type == "group" %}
   {% if field.is_array %}
   {# 配列グループ #}
-  <div class="{{ group_container_class }}">
+  <div class="py-2 lg:py-3">
     <div class="text-sm font-semibold leading-6 text-slate-700">
       {{ field.label or field.key }}
       {% if field.required %}
@@ -42,7 +42,9 @@
     <div class="mt-1 text-xs leading-relaxed text-slate-500">{{ field.description }}</div>
     {% endif %}
     <div class="array-group mt-2" data-prefix="{{ form_name }}">
-      <div class="array-group-items space-y-3"></div>
+      <div class="{{ group_container_class }}">
+        <div class="array-group-items space-y-3"></div>
+      </div>
       <div class="mt-2 flex justify-start">
         <button type="button" class="add-group-item rounded border border-slate-300 px-3 py-1 text-xs" {% if inactive %}disabled{% endif %}>追加</button>
       </div>
@@ -63,7 +65,7 @@
   </div>
   {% else %}
   {# 通常グループ #}
-  <div class="{{ group_container_class }}">
+  <div class="py-2 lg:py-3">
     <div class="text-sm font-semibold leading-6 text-slate-700">
       {{ field.label or field.key }}
       {% if field.required %}
@@ -73,10 +75,12 @@
     {% if field.description %}
     <div class="mt-1 text-xs leading-relaxed text-slate-500">{{ field.description }}</div>
     {% endif %}
-    <div class="mt-2 space-y-3">
-      {% for child in field.children %}
-      {{ render_field(child, form_name ~ ".", inactive, depth + 1) }}
-      {% endfor %}
+    <div class="mt-2 {{ group_container_class }}">
+      <div class="space-y-3">
+        {% for child in field.children %}
+        {{ render_field(child, form_name ~ ".", inactive, depth + 1) }}
+        {% endfor %}
+      </div>
     </div>
   </div>
   {% endif %}
