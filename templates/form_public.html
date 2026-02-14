@@ -53,8 +53,8 @@
             {{ render_field(child, form_name ~ ".__INDEX__.", inactive, depth + 1) }}
             {% endfor %}
           </div>
-          <div class="mt-2 pb-2 flex items-center justify-end gap-2">
-            <span class="group-item-order text-[11px] text-slate-500"></span>
+          <div class="group-item-meta mt-2 pb-2 flex items-center justify-end gap-2">
+            <span data-role="group-item-order" class="group-item-order text-[11px] text-slate-500"></span>
             <button type="button" class="remove-group-item shrink-0 whitespace-nowrap rounded border border-rose-300 px-2 py-1 text-xs text-rose-600" {% if inactive %}disabled{% endif %}>削除</button>
           </div>
         </div>
@@ -263,7 +263,8 @@
       const entries = Array.from(list.children).filter((el) => el.classList.contains("array-group-entry"));
       const total = entries.length;
       entries.forEach((entry, index) => {
-        const orderEl = entry.querySelector(".group-item-order");
+        const meta = Array.from(entry.children).find((el) => el.classList.contains("group-item-meta"));
+        const orderEl = meta ? meta.querySelector("[data-role='group-item-order']") : null;
         if (!orderEl) return;
         orderEl.textContent = `${index + 1}/${total}`;
       });
@@ -279,7 +280,8 @@
       const node = template.content.firstElementChild.cloneNode(true);
       const idx = counter++;
       node.innerHTML = node.innerHTML.replaceAll("__INDEX__", String(idx));
-      const removeButton = node.querySelector(".remove-group-item");
+      const meta = Array.from(node.children).find((el) => el.classList.contains("group-item-meta"));
+      const removeButton = meta ? meta.querySelector(".remove-group-item") : null;
       if (removeButton) {
         removeButton.addEventListener("click", () => {
           node.remove();
