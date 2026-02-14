@@ -25,6 +25,52 @@ def flatten_fields(
     return result
 
 
+def flatten_filter_fields(
+    fields: list[dict[str, Any]],
+    prefix: str = "",
+    label_prefix: str = "",
+    in_array_context: bool = False,
+) -> list[dict[str, Any]]:
+    result: list[dict[str, Any]] = []
+    for field in fields:
+        key = f"{prefix}{field['key']}" if prefix else field["key"]
+        label = (
+            f"{label_prefix}{field.get('label') or field['key']}"
+            if label_prefix
+            else (field.get("label") or field["key"])
+        )
+        field_type = field.get("type")
+        is_array = bool(field.get("is_array"))
+        effective_is_array = is_array or in_array_context
+
+        if field_type == "group":
+            children = field.get("children") or []
+            if is_array:
+                # 配列グループ本体のフィルタを残しつつ、子要素もフィルタ可能にする。
+                result.append({**field, "flat_key": key, "flat_label": label, "is_array": True})
+                result.extend(
+                    flatten_filter_fields(
+                        children,
+                        prefix=key + ".",
+                        label_prefix=label + ".",
+                        in_array_context=True,
+                    )
+                )
+            else:
+                result.extend(
+                    flatten_filter_fields(
+                        children,
+                        prefix=key + ".",
+                        label_prefix=label + ".",
+                        in_array_context=in_array_context,
+                    )
+                )
+            continue
+
+        result.append({**field, "flat_key": key, "flat_label": label, "is_array": effective_is_array})
+    return result
+
+
 def _build_child_map(children: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     mapping: dict[str, dict[str, Any]] = {}
     for child in children:

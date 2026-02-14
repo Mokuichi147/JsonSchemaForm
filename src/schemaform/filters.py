@@ -8,6 +8,7 @@ from typing import Any, Iterable
 
 from schemaform.fields import (
     flatten_fields,
+    flatten_filter_fields,
     format_array_group_value,
     get_nested_value,
 )
@@ -97,8 +98,29 @@ def apply_filters(
     q = str(query_params.get("q", "")).strip().lower()
     from_dt = parse_query_datetime(query_params.get("submitted_from"))
     to_dt = parse_query_datetime(query_params.get("submitted_to"))
-    flat_fields = flatten_fields(fields)
+    flat_fields = flatten_filter_fields(fields)
     resolved_file_names = file_names or {}
+
+    def get_filter_values(current: Any, dotted_key: str) -> list[Any]:
+        parts = dotted_key.split(".")
+
+        def walk(node: Any, idx: int) -> list[Any]:
+            if idx >= len(parts):
+                if isinstance(node, list):
+                    return list(node)
+                return [node]
+
+            key = parts[idx]
+            values: list[Any] = []
+            if isinstance(node, dict):
+                if key in node:
+                    values.extend(walk(node.get(key), idx + 1))
+            elif isinstance(node, list):
+                for item in node:
+                    values.extend(walk(item, idx))
+            return values
+
+        return walk(current, 0)
 
     def iter_searchable_values(field_list: list[dict[str, Any]], current_data: Any) -> Iterable[str]:
         if not isinstance(current_data, dict):
@@ -166,11 +188,18 @@ def apply_filters(
         for field in flat_fields:
             flat_key = field["flat_key"]
             param_key = f"f_{flat_key.replace('.', '__')}"
-            value = get_nested_value(data, flat_key)
+            values = get_filter_values(data, flat_key)
+            value = values[0] if values else None
             field_type = field["type"]
             is_array = field.get("is_array", False)
 
             if field_type == "group":
+                filter_value = str(query_params.get(param_key, "")).strip()
+                if not filter_value:
+                    continue
+                if not any(filter_value.lower() in str(item).lower() for item in values):
+                    ok = False
+                    break
                 continue
 
             if is_array:
@@ -178,9 +207,9 @@ def apply_filters(
                 if not filter_value:
                     continue
                 filter_value_lower = filter_value.lower()
-                items = value or []
+                items = [item for item in values if item not in (None, "")]
                 if field_type == "enum":
-                    if filter_value not in items:
+                    if filter_value not in [str(item) for item in items]:
                         ok = False
                         break
                 elif field_type == "file":

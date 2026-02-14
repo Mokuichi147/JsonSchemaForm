@@ -9,6 +9,7 @@ from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
 
 from schemaform.fields import (
     flatten_fields,
+    flatten_filter_fields,
     format_array_group_value,
     get_nested_value,
 )
@@ -53,6 +54,7 @@ async def list_submissions(request: Request, form_id: str, _: Any = Depends(admi
     page_items = filtered[start:end]
 
     flat_fields = flatten_fields(fields)
+    filter_fields = flatten_filter_fields(fields)
 
     display_rows = []
     for item in page_items:
@@ -84,6 +86,7 @@ async def list_submissions(request: Request, form_id: str, _: Any = Depends(admi
             "form": form,
             "fields": fields,
             "flat_fields": flat_fields,
+            "filter_fields": filter_fields,
             "rows": display_rows,
             "page": page,
             "page_size": page_size,
