@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any
+from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -17,6 +18,22 @@ router = APIRouter()
 
 def admin_guard(request: Request) -> None:
     request.app.state.auth_provider.require_admin(request)
+
+
+def resolve_redirect_target(next_path: Any, default: str = "/admin/forms") -> str:
+    candidate = str(next_path or "").strip()
+    if not candidate:
+        return default
+    if not candidate.startswith("/") or candidate.startswith("//"):
+        return default
+    parsed = urlsplit(candidate)
+    if parsed.scheme or parsed.netloc:
+        return default
+    if not parsed.path.startswith("/admin/forms"):
+        return default
+    if parsed.query:
+        return f"{parsed.path}?{parsed.query}"
+    return parsed.path
 
 
 @router.get("/", response_class=HTMLResponse, tags=["admin"])
@@ -162,14 +179,16 @@ async def update_form(request: Request, form_id: str, _: Any = Depends(admin_gua
 async def publish_form(request: Request, form_id: str, _: Any = Depends(admin_guard)) -> RedirectResponse:
     storage = request.app.state.storage
     storage.forms.set_status(form_id, "active")
-    return RedirectResponse("/admin/forms", status_code=303)
+    target = resolve_redirect_target(request.query_params.get("next"))
+    return RedirectResponse(target, status_code=303)
 
 
 @router.post("/admin/forms/{form_id}/stop", tags=["admin"])
 async def stop_form(request: Request, form_id: str, _: Any = Depends(admin_guard)) -> RedirectResponse:
     storage = request.app.state.storage
     storage.forms.set_status(form_id, "inactive")
-    return RedirectResponse("/admin/forms", status_code=303)
+    target = resolve_redirect_target(request.query_params.get("next"))
+    return RedirectResponse(target, status_code=303)
 
 
 @router.post("/admin/forms/{form_id}/delete", tags=["admin"])

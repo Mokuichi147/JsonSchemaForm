@@ -28,9 +28,13 @@
         </td>
         <td class="px-4 py-3">
           {% if form.status == "active" %}
-          <span class="whitespace-nowrap rounded-full bg-emerald-100 px-2 py-1 text-xs text-emerald-800">公開中</span>
+          <form method="post" action="/admin/forms/{{ form.id }}/stop">
+            <button type="submit" class="whitespace-nowrap rounded-full bg-emerald-100 px-2 py-1 text-xs text-emerald-800 hover:bg-emerald-200">公開中</button>
+          </form>
           {% else %}
-          <span class="whitespace-nowrap rounded-full bg-slate-200 px-2 py-1 text-xs text-slate-700">停止中</span>
+          <form method="post" action="/admin/forms/{{ form.id }}/publish">
+            <button type="submit" class="whitespace-nowrap rounded-full bg-slate-200 px-2 py-1 text-xs text-slate-700 hover:bg-slate-300">停止中</button>
+          </form>
           {% endif %}
         </td>
         <td class="px-4 py-3">
@@ -43,15 +47,6 @@
           <div class="flex flex-wrap gap-2">
             <a href="/admin/forms/{{ form.id }}" class="rounded border border-slate-300 px-2 py-1 text-xs">編集</a>
             <a href="/admin/forms/{{ form.id }}/submissions" class="rounded border border-slate-300 px-2 py-1 text-xs">送信一覧</a>
-            {% if form.status == "active" %}
-            <form method="post" action="/admin/forms/{{ form.id }}/stop">
-              <button class="rounded border border-slate-300 px-2 py-1 text-xs">停止</button>
-            </form>
-            {% else %}
-            <form method="post" action="/admin/forms/{{ form.id }}/publish">
-              <button class="rounded border border-slate-300 px-2 py-1 text-xs">公開</button>
-            </form>
-            {% endif %}
             <form method="post" action="/admin/forms/{{ form.id }}/delete" onsubmit="return confirm('このフォームを削除しますか？')">
               <button class="whitespace-nowrap rounded border border-rose-300 px-2 py-1 text-xs text-rose-600">削除</button>
             </form>
