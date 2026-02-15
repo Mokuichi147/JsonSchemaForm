@@ -94,6 +94,10 @@
           <input type="checkbox" data-field="is_array" />
           配列
         </label>
+        <label class="hidden flex items-center gap-2" data-role="expand-rows">
+          <input type="checkbox" data-field="expand_rows" />
+          送信一覧で展開
+        </label>
         <label class="flex items-center gap-2" data-role="multiline">
           <input type="checkbox" data-field="multiline" />
           複数行
@@ -243,6 +247,7 @@
     max: "",
     format: "",
     is_array: false,
+    expand_rows: false,
     items_type: "",
     multiline: false,
     children: [],
@@ -356,16 +361,22 @@
     const showMinMax = type === "number" || type === "integer";
     const showFormat = type === "string";
     const showMultiline = type === "string";
+    const showExpandRows = isGroup && isArray;
     row.querySelector('[data-role="enum"]').classList.toggle("hidden", !showEnum);
     row.querySelector('[data-role="minmax"]').classList.toggle("hidden", !showMinMax);
     row.querySelector('[data-role="format"]').classList.toggle("hidden", isGroup || !showFormat);
     row.querySelector('[data-role="placeholder"]').classList.toggle("hidden", isGroup || !showFormat);
     row.querySelector('[data-role="multiline"]').classList.toggle("hidden", isGroup || !showMultiline);
+    row.querySelector('[data-role="expand-rows"]').classList.toggle("hidden", !showExpandRows);
     row.querySelector('[data-role="group-children"]').classList.toggle("hidden", !isGroup);
 
     if (isArray && type === "file") {
       row.querySelector('[data-role="format"]').classList.add("hidden");
       row.querySelector('[data-role="placeholder"]').classList.add("hidden");
+    }
+
+    if (!showExpandRows) {
+      row.querySelector('[data-field="expand_rows"]').checked = false;
     }
 
     if (!isGroup) {
@@ -395,6 +406,7 @@
       max: get("max").value.trim(),
       format: get("format").value,
       is_array: isArray,
+      expand_rows: type === "group" && isArray ? get("expand_rows").checked : false,
       items_type: isArray ? type : "",
       multiline: get("multiline").checked,
       children: [],
@@ -472,6 +484,7 @@
     setValue(row, "max", normalized.max ?? "");
     setValue(row, "format", normalized.format ?? "");
     setValue(row, "is_array", normalized.is_array);
+    setValue(row, "expand_rows", normalized.expand_rows);
     setValue(row, "multiline", normalized.multiline);
 
     attachRowEvents(row);

@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
 
 from schemaform.fields import (
+    expand_group_array_rows,
     flatten_fields,
     flatten_filter_fields,
     format_array_group_value,
@@ -39,11 +40,16 @@ async def list_submissions(request: Request, form_id: str, _: Any = Depends(admi
 
     fields = fields_from_schema(form["schema_json"], form.get("field_order", []))
     submissions = storage.submissions.list_submissions(form_id)
+    expanded_submissions: list[dict[str, Any]] = []
+    for submission in submissions:
+        data = submission.get("data_json", {})
+        for expanded_data in expand_group_array_rows(fields, data):
+            expanded_submissions.append({**submission, "data_json": expanded_data})
     file_ids = collect_file_ids(submissions, fields)
     file_names = resolve_file_names(storage.files, file_ids)
 
     filtered = apply_filters(
-        submissions, fields, dict(request.query_params), file_names=file_names
+        expanded_submissions, fields, dict(request.query_params), file_names=file_names
     )
 
     page = int(request.query_params.get("page", 1))
@@ -53,7 +59,7 @@ async def list_submissions(request: Request, form_id: str, _: Any = Depends(admi
     end = start + page_size
     page_items = filtered[start:end]
 
-    flat_fields = flatten_fields(fields)
+    flat_fields = flatten_fields(fields, expand_rows_for_group_arrays=True)
     filter_fields = flatten_filter_fields(fields)
 
     display_rows = []

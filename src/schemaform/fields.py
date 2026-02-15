@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from typing import Any
 
 from schemaform.utils import dumps_json
@@ -9,6 +10,7 @@ def flatten_fields(
     fields: list[dict[str, Any]],
     prefix: str = "",
     label_prefix: str = "",
+    expand_rows_for_group_arrays: bool = False,
 ) -> list[dict[str, Any]]:
     result: list[dict[str, Any]] = []
     for field in fields:
@@ -16,10 +18,28 @@ def flatten_fields(
         label = f"{label_prefix}{field.get('label') or field['key']}" if label_prefix else (field.get("label") or field["key"])
         if field.get("type") == "group":
             if field.get("is_array"):
-                result.append({**field, "flat_key": key, "flat_label": label})
+                if expand_rows_for_group_arrays and field.get("expand_rows"):
+                    children = field.get("children") or []
+                    result.extend(
+                        flatten_fields(
+                            children,
+                            prefix=key + ".",
+                            label_prefix=label + ".",
+                            expand_rows_for_group_arrays=expand_rows_for_group_arrays,
+                        )
+                    )
+                else:
+                    result.append({**field, "flat_key": key, "flat_label": label})
             else:
                 children = field.get("children") or []
-                result.extend(flatten_fields(children, prefix=key + ".", label_prefix=label + "."))
+                result.extend(
+                    flatten_fields(
+                        children,
+                        prefix=key + ".",
+                        label_prefix=label + ".",
+                        expand_rows_for_group_arrays=expand_rows_for_group_arrays,
+                    )
+                )
         else:
             result.append({**field, "flat_key": key, "flat_label": label})
     return result
@@ -162,3 +182,71 @@ def clean_empty_recursive(data: Any) -> Any:
                 cleaned_list.append(result)
         return cleaned_list if cleaned_list else None
     return data
+
+
+def _expand_value_by_field(field: dict[str, Any], value: Any) -> list[Any]:
+    if field.get("type") != "group":
+        return [deepcopy(value)]
+
+    children = field.get("children") or []
+    if field.get("is_array"):
+        if not field.get("expand_rows"):
+            if value is None:
+                return [[]]
+            return [deepcopy(value)]
+        if not isinstance(value, list) or not value:
+            return [{}]
+        expanded_items: list[Any] = []
+        for item in value:
+            if isinstance(item, dict):
+                item_variants = _expand_object_by_children(children, item)
+            else:
+                item_variants = [deepcopy(item)]
+            for item_variant in item_variants:
+                expanded_items.append(item_variant)
+        return expanded_items
+
+    if isinstance(value, dict):
+        return _expand_object_by_children(children, value)
+    return _expand_object_by_children(children, {})
+
+
+def _expand_object_by_children(children: list[dict[str, Any]], source: dict[str, Any]) -> list[dict[str, Any]]:
+    child_keys = {child["key"] for child in children}
+    base_extras = {k: deepcopy(v) for k, v in source.items() if k not in child_keys}
+    variants: list[dict[str, Any]] = [base_extras]
+
+    for child in children:
+        key = child["key"]
+        expanded_values = _expand_value_by_field(child, source.get(key))
+        next_variants: list[dict[str, Any]] = []
+        for base in variants:
+            for expanded_value in expanded_values:
+                row = dict(base)
+                row[key] = expanded_value
+                next_variants.append(row)
+        variants = next_variants
+
+    return variants or [base_extras]
+
+
+def expand_group_array_rows(fields: list[dict[str, Any]], data: dict[str, Any]) -> list[dict[str, Any]]:
+    if not isinstance(data, dict):
+        return [{}]
+
+    top_keys = {field["key"] for field in fields}
+    base_extras = {k: deepcopy(v) for k, v in data.items() if k not in top_keys}
+    variants: list[dict[str, Any]] = [base_extras]
+
+    for field in fields:
+        key = field["key"]
+        expanded_values = _expand_value_by_field(field, data.get(key))
+        next_variants: list[dict[str, Any]] = []
+        for base in variants:
+            for expanded_value in expanded_values:
+                row = dict(base)
+                row[key] = expanded_value
+                next_variants.append(row)
+        variants = next_variants
+
+    return variants or [base_extras]

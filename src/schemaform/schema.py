@@ -39,6 +39,7 @@ def parse_fields_json(fields_json: str) -> tuple[list[dict[str, Any]], list[str]
             field_type = str(raw.get("type", "")).strip()
             is_array = bool(raw.get("is_array"))
             items_type = str(raw.get("items_type", "")).strip() if is_array else ""
+            expand_rows = bool(raw.get("expand_rows")) if (field_type == "group" and is_array) else False
 
             if field_type not in ALLOWED_TYPES:
                 errors.append(f"{loc}: 種類が不正です ({field_type})")
@@ -81,6 +82,7 @@ def parse_fields_json(fields_json: str) -> tuple[list[dict[str, Any]], list[str]
                     "is_array": is_array,
                     "items_type": items_type,
                     "multiline": bool(raw.get("multiline")),
+                    "expand_rows": expand_rows,
                     "children": children,
                 }
             )
@@ -129,6 +131,8 @@ def build_property(field: dict[str, Any]) -> dict[str, Any]:
             obj["required"] = child_schema["required"]
         if field.get("is_array"):
             prop: dict[str, Any] = {"type": "array", "items": obj}
+            if field.get("expand_rows"):
+                prop["x-expand-rows"] = True
         else:
             prop = obj
     elif field["is_array"]:
@@ -227,6 +231,7 @@ def fields_from_schema(schema: dict[str, Any], field_order: list[str]) -> list[d
                     "is_array": is_array,
                     "items_type": "",
                     "multiline": False,
+                    "expand_rows": bool(prop.get("x-expand-rows", False)) if is_array else False,
                     "children": children,
                 }
             )
@@ -259,6 +264,7 @@ def fields_from_schema(schema: dict[str, Any], field_order: list[str]) -> list[d
                 "is_array": is_array,
                 "items_type": field_type if is_array else "",
                 "multiline": prop.get("x-multiline", False),
+                "expand_rows": False,
                 "children": [],
             }
         )
