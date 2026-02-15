@@ -25,7 +25,7 @@
   {% set indent_border_color = "border-violet-300" %}
   {% set entry_bg_class = "bg-violet-50" %}
 {% endif %}
-{% set nested_indent_class = "border-l-2 " ~ indent_border_color ~ " pl-3 pr-0 pt-2 pb-0" %}
+{% set nested_indent_class = "border-l-2 " ~ indent_border_color ~ " " ~ entry_bg_class ~ " pl-3 pr-0 pt-2 pb-0" %}
 {% set group_container_class = nested_indent_class %}
 {% set array_entry_class = "border-l-2 " ~ indent_border_color ~ " " ~ entry_bg_class ~ " pl-3 pr-0 pt-2 pb-0" %}
 
