@@ -114,9 +114,9 @@
       <div class="sf-field-input-col lg:col-span-9">
         {% if field.is_array %}
           {% if field.type == "file" %}
-            <input type="file" name="{{ form_name }}" multiple class="mt-1 w-full rounded border border-slate-300 px-2 py-2 lg:mt-0" {% if inactive %}disabled{% endif %} />
+            <input type="file" name="{{ form_name }}" multiple class="mt-1 w-full {{ ns.fw }} rounded border border-slate-300 px-2 py-2 lg:mt-0" {% if inactive %}disabled{% endif %} />
           {% else %}
-            <div class="array-field mt-1 lg:mt-0" data-key="{{ form_name }}" data-type="{{ field.type }}" data-picker="{{ picker }}">
+            <div class="array-field mt-1 w-full {{ ns.fw }} lg:mt-0" data-key="{{ form_name }}" data-type="{{ field.type }}" data-picker="{{ picker }}">
               <div class="space-y-2 array-items"></div>
               <button type="button" class="add-item mt-1 rounded border border-slate-300 px-3 py-1 text-xs" {% if inactive %}disabled{% endif %}>追加</button>
               <template>
