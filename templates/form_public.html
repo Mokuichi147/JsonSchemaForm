@@ -355,7 +355,7 @@
       addButton.classList.add("sf-button-pop");
     }
 
-    function playPageTransition(fromEntry, toEntry, direction) {
+    function playPageTransition(fromEntry, toEntry, direction, onTransitionEnd = null) {
       if (!fromEntry || !toEntry || fromEntry === toEntry) return;
       const incomingFrom = direction < 0 ? "-100%" : "100%";
       const outgoingTo = direction < 0 ? "100%" : "-100%";
@@ -397,6 +397,9 @@
       list._sfSlideTimer = window.setTimeout(() => {
         cleanupSlideStyles(fromEntry);
         cleanupSlideStyles(toEntry);
+        if (typeof onTransitionEnd === "function") {
+          onTransitionEnd();
+        }
         isAnimating = false;
         refreshGroupState();
         list.style.position = "";
@@ -433,7 +436,7 @@
     }
 
     function refreshGroupState(options = {}) {
-      const { animate = false, direction = 1, fromIndex = currentIndex } = options;
+      const { animate = false, direction = 1, fromIndex = currentIndex, onTransitionEnd = null } = options;
       const entries = getEntries();
       const total = entries.length;
       if (total === 0) {
@@ -462,7 +465,7 @@
             entry.classList.add("hidden");
           }
         });
-        playPageTransition(entries[fromIndex], entries[currentIndex], direction);
+        playPageTransition(entries[fromIndex], entries[currentIndex], direction, onTransitionEnd);
       }
 
       if (paginationLabel) {
@@ -518,10 +521,35 @@
         if (isAnimating) return;
         const entries = getEntries();
         if (entries.length === 0) return;
-        const target = entries[currentIndex] || entries[entries.length - 1];
-        if (!target) return;
-        target.remove();
-        refreshGroupState();
+        if (entries.length === 1) {
+          const onlyEntry = entries[0];
+          if (!onlyEntry) return;
+          onlyEntry.remove();
+          currentIndex = 0;
+          refreshGroupState();
+          return;
+        }
+
+        const fromIndex = currentIndex;
+        const fromEntry = entries[fromIndex];
+        const hasNext = fromIndex < entries.length - 1;
+        const toIndex = hasNext ? fromIndex + 1 : fromIndex - 1;
+        const direction = hasNext ? 1 : -1;
+        const toEntry = entries[toIndex];
+        if (!fromEntry || !toEntry) return;
+
+        currentIndex = toIndex;
+        refreshGroupState({
+          animate: true,
+          direction,
+          fromIndex,
+          onTransitionEnd: () => {
+            fromEntry.remove();
+            if (fromIndex < currentIndex) {
+              currentIndex -= 1;
+            }
+          },
+        });
       });
     }
     if (prevButton) {
