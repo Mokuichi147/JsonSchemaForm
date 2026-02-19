@@ -43,16 +43,19 @@
     <div class="mt-1 text-xs leading-relaxed text-slate-500">{{ field.description }}</div>
     {% endif %}
     <div class="array-group mt-2" data-prefix="{{ form_name }}" data-index-token="{{ index_token }}">
+      <div data-role="group-dots" class="group-dot-list mb-2 flex min-h-[0.75rem] items-center gap-1.5"></div>
       <div class="array-group-items"></div>
-      <div class="mt-2 flex flex-wrap items-center justify-between gap-2">
+      <div class="mt-2 space-y-1">
         <div class="flex items-center gap-2">
-          <button type="button" class="group-prev rounded border border-slate-300 px-2 py-1 text-xs" {% if inactive %}disabled{% endif %}>前へ</button>
-          <span data-role="group-pagination" class="min-w-[3.5rem] text-center text-xs text-slate-500">0/0</span>
-          <button type="button" class="group-next rounded border border-slate-300 px-2 py-1 text-xs" {% if inactive %}disabled{% endif %}>次へ</button>
-        </div>
-        <div class="flex items-center gap-2">
-          <button type="button" class="add-group-item rounded border border-slate-300 px-3 py-1 text-xs" {% if inactive %}disabled{% endif %}>追加</button>
-          <button type="button" class="remove-group-item-current whitespace-nowrap rounded border border-rose-300 px-2 py-1 text-xs text-rose-600" {% if inactive %}disabled{% endif %}>削除</button>
+          <div class="flex flex-nowrap items-center gap-1.5">
+            <button type="button" class="group-prev rounded border border-slate-300 px-2 py-1 text-xs" {% if inactive %}disabled{% endif %}>前へ</button>
+            <span data-role="group-pagination" aria-live="polite" class="min-w-[2.5rem] text-center text-xs font-medium tabular-nums text-slate-600" title="0件目 / 全0件" aria-label="0件目 / 全0件">0/0</span>
+            <button type="button" class="group-next rounded border border-slate-300 px-2 py-1 text-xs" {% if inactive %}disabled{% endif %}>次へ</button>
+          </div>
+          <div class="ml-auto flex flex-nowrap items-center gap-1.5">
+            <button type="button" class="add-group-item rounded border border-slate-300 px-2 py-1 text-xs" {% if inactive %}disabled{% endif %}>追加</button>
+            <button type="button" class="remove-group-item-current whitespace-nowrap rounded border border-rose-300 px-2 py-1 text-xs text-rose-600" {% if inactive %}disabled{% endif %}>削除</button>
+          </div>
         </div>
       </div>
       <template>
@@ -202,8 +205,52 @@
 </div>
 
 <style>
+  .array-group-entry {
+    will-change: transform, opacity;
+  }
+
   .array-group-entry .sf-field-input-col {
     padding-right: 0.5rem;
+  }
+
+  .group-page-dot {
+    height: 0.5rem;
+    width: 0.5rem;
+    border-radius: 9999px;
+    border: 1px solid rgb(148 163 184);
+    background-color: rgb(226 232 240);
+    transition: transform 150ms ease, background-color 150ms ease, border-color 150ms ease;
+  }
+
+  .group-page-dot:hover:not(:disabled) {
+    transform: scale(1.15);
+    border-color: rgb(71 85 105);
+  }
+
+  .group-page-dot.is-active {
+    border-color: rgb(71 85 105);
+    background-color: rgb(71 85 105);
+  }
+
+  .group-page-dot:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+  }
+
+  .add-group-item.sf-button-pop {
+    animation: sf-button-pop 180ms ease-out;
+  }
+
+  @keyframes sf-button-pop {
+    0% {
+      transform: scale(1);
+    }
+    35% {
+      transform: scale(1.08);
+    }
+    100% {
+      transform: scale(1);
+    }
   }
 
   @media (min-width: 1024px) {
@@ -211,6 +258,7 @@
       min-width: 0;
     }
   }
+
 </style>
 
 <script>
@@ -277,16 +325,115 @@
     const prevButton = block.querySelector(".group-prev");
     const nextButton = block.querySelector(".group-next");
     const paginationLabel = block.querySelector("[data-role='group-pagination']");
+    const dotsContainer = block.querySelector("[data-role='group-dots']");
     const indexToken = block.dataset.indexToken || "__INDEX__";
+    const slideDurationMs = 280;
     let counter = 0;
     let currentIndex = 0;
+    let isAnimating = false;
     if (!template || !list || !addButton) return;
 
     function getEntries() {
       return Array.from(list.children).filter((el) => el.classList.contains("array-group-entry"));
     }
 
-    function refreshGroupState() {
+    function cleanupSlideStyles(entry) {
+      if (!entry) return;
+      entry.style.transition = "";
+      entry.style.transform = "";
+      entry.style.position = "";
+      entry.style.inset = "";
+      entry.style.width = "";
+      entry.style.zIndex = "";
+      entry.style.opacity = "";
+      entry.style.pointerEvents = "";
+    }
+
+    function playAddButtonAnimation() {
+      addButton.classList.remove("sf-button-pop");
+      void addButton.offsetWidth;
+      addButton.classList.add("sf-button-pop");
+    }
+
+    function playPageTransition(fromEntry, toEntry, direction) {
+      if (!fromEntry || !toEntry || fromEntry === toEntry) return;
+      const incomingFrom = direction < 0 ? "-100%" : "100%";
+      const outgoingTo = direction < 0 ? "100%" : "-100%";
+      isAnimating = true;
+
+      if (list._sfSlideTimer) {
+        window.clearTimeout(list._sfSlideTimer);
+      }
+
+      const maxHeight = Math.max(fromEntry.offsetHeight, toEntry.offsetHeight);
+      list.style.position = "relative";
+      list.style.minHeight = `${maxHeight}px`;
+      list.style.overflow = "hidden";
+
+      fromEntry.classList.remove("hidden");
+      toEntry.classList.remove("hidden");
+      fromEntry.style.position = "absolute";
+      toEntry.style.position = "absolute";
+      fromEntry.style.inset = "0";
+      toEntry.style.inset = "0";
+      fromEntry.style.width = "100%";
+      toEntry.style.width = "100%";
+      fromEntry.style.zIndex = "1";
+      toEntry.style.zIndex = "2";
+      fromEntry.style.pointerEvents = "none";
+      toEntry.style.pointerEvents = "none";
+      fromEntry.style.transition = "none";
+      toEntry.style.transition = "none";
+      fromEntry.style.transform = "translateX(0)";
+      toEntry.style.transform = `translateX(${incomingFrom})`;
+
+      void list.offsetWidth;
+
+      fromEntry.style.transition = `transform ${slideDurationMs}ms cubic-bezier(0.22, 0.61, 0.36, 1)`;
+      toEntry.style.transition = `transform ${slideDurationMs}ms cubic-bezier(0.22, 0.61, 0.36, 1)`;
+      fromEntry.style.transform = `translateX(${outgoingTo})`;
+      toEntry.style.transform = "translateX(0)";
+
+      list._sfSlideTimer = window.setTimeout(() => {
+        cleanupSlideStyles(fromEntry);
+        cleanupSlideStyles(toEntry);
+        isAnimating = false;
+        refreshGroupState();
+        list.style.position = "";
+        list.style.minHeight = "";
+        list.style.overflow = "";
+      }, slideDurationMs + 30);
+    }
+
+    function renderDots(total, controlsLocked) {
+      if (!dotsContainer) return;
+      dotsContainer.replaceChildren();
+      if (total <= 1) return;
+      for (let index = 0; index < total; index += 1) {
+        const dot = document.createElement("button");
+        dot.type = "button";
+        dot.className = "group-page-dot";
+        dot.disabled = controlsLocked;
+        if (index === currentIndex) {
+          dot.classList.add("is-active");
+          dot.setAttribute("aria-current", "page");
+        } else {
+          dot.setAttribute("aria-current", "false");
+        }
+        dot.setAttribute("aria-label", `${index + 1}件目へ移動`);
+        dot.addEventListener("click", () => {
+          if (index === currentIndex || isAnimating) return;
+          const direction = index > currentIndex ? 1 : -1;
+          const fromIndex = currentIndex;
+          currentIndex = index;
+          refreshGroupState({ animate: true, direction, fromIndex });
+        });
+        dotsContainer.appendChild(dot);
+      }
+    }
+
+    function refreshGroupState(options = {}) {
+      const { animate = false, direction = 1, fromIndex = currentIndex } = options;
       const entries = getEntries();
       const total = entries.length;
       if (total === 0) {
@@ -297,14 +444,40 @@
         currentIndex = 0;
       }
 
-      entries.forEach((entry, index) => {
-        entry.classList.toggle("hidden", index !== currentIndex);
-      });
+      if (!isAnimating) {
+        entries.forEach((entry, index) => {
+          entry.classList.toggle("hidden", index !== currentIndex);
+        });
+      }
+      if (
+        animate &&
+        !isAnimating &&
+        total > 0 &&
+        fromIndex >= 0 &&
+        fromIndex < total &&
+        fromIndex !== currentIndex
+      ) {
+        entries.forEach((entry, index) => {
+          if (index !== fromIndex && index !== currentIndex) {
+            entry.classList.add("hidden");
+          }
+        });
+        playPageTransition(entries[fromIndex], entries[currentIndex], direction);
+      }
 
       if (paginationLabel) {
-        paginationLabel.textContent = total > 0 ? `${currentIndex + 1}/${total}` : "0/0";
+        if (total > 0) {
+          const detailed = `${currentIndex + 1}件目 / 全${total}件`;
+          paginationLabel.textContent = `${currentIndex + 1}/${total}`;
+          paginationLabel.title = detailed;
+          paginationLabel.setAttribute("aria-label", detailed);
+        } else {
+          paginationLabel.textContent = "0/0";
+          paginationLabel.title = "0件目 / 全0件";
+          paginationLabel.setAttribute("aria-label", "0件目 / 全0件");
+        }
       }
-      const controlsLocked = addButton.disabled;
+      const controlsLocked = addButton.disabled || isAnimating;
       if (prevButton) {
         prevButton.disabled = controlsLocked || total <= 1 || currentIndex <= 0;
       }
@@ -314,6 +487,7 @@
       if (removeCurrentButton) {
         removeCurrentButton.disabled = controlsLocked || total <= 0;
       }
+      renderDots(total, controlsLocked);
     }
 
     function bootstrapNode(node) {
@@ -322,19 +496,26 @@
       node.querySelectorAll(".array-group").forEach(initArrayGroupBlock);
     }
 
-    function addGroupItem() {
+    function addGroupItem(options = {}) {
+      const { animate = false } = options;
+      const previousIndex = currentIndex;
       const node = template.content.firstElementChild.cloneNode(true);
       const idx = counter++;
       node.innerHTML = node.innerHTML.replaceAll(indexToken, String(idx));
       bootstrapNode(node);
       list.appendChild(node);
       currentIndex = getEntries().length - 1;
-      refreshGroupState();
+      refreshGroupState({ animate, direction: 1, fromIndex: previousIndex });
     }
 
-    addButton.addEventListener("click", addGroupItem);
+    addButton.addEventListener("click", () => {
+      if (isAnimating) return;
+      playAddButtonAnimation();
+      addGroupItem({ animate: true });
+    });
     if (removeCurrentButton) {
       removeCurrentButton.addEventListener("click", () => {
+        if (isAnimating) return;
         const entries = getEntries();
         if (entries.length === 0) return;
         const target = entries[currentIndex] || entries[entries.length - 1];
@@ -345,20 +526,23 @@
     }
     if (prevButton) {
       prevButton.addEventListener("click", () => {
-        if (currentIndex <= 0) return;
+        if (currentIndex <= 0 || isAnimating) return;
+        const fromIndex = currentIndex;
         currentIndex -= 1;
-        refreshGroupState();
+        refreshGroupState({ animate: true, direction: -1, fromIndex });
       });
     }
     if (nextButton) {
       nextButton.addEventListener("click", () => {
+        if (isAnimating) return;
         const total = getEntries().length;
         if (currentIndex >= total - 1) return;
+        const fromIndex = currentIndex;
         currentIndex += 1;
-        refreshGroupState();
+        refreshGroupState({ animate: true, direction: 1, fromIndex });
       });
     }
-    addGroupItem();
+    addGroupItem({ animate: false });
   }
 
   document.querySelectorAll("input[data-picker]").forEach(initPicker);
