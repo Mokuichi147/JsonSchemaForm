@@ -93,8 +93,8 @@
     <thead class="bg-slate-100 text-left">
       <tr>
         <th class="px-4 py-3">送信日時</th>
-        {% for field in flat_fields %}
-        <th class="px-4 py-3">{{ field.flat_label }}</th>
+        {% for label in display_fields %}
+        <th class="px-4 py-3">{{ label }}</th>
         {% endfor %}
         <th class="px-4 py-3">操作</th>
       </tr>
@@ -116,7 +116,7 @@
       </tr>
       {% else %}
       <tr>
-        <td colspan="{{ flat_fields | length + 2 }}" class="px-4 py-6 text-center text-slate-500">該当データがありません。</td>
+        <td colspan="{{ display_fields | length + 2 }}" class="px-4 py-6 text-center text-slate-500">該当データがありません。</td>
       </tr>
       {% endfor %}
     </tbody>

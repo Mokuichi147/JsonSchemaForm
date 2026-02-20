@@ -13,6 +13,7 @@ from schemaform.filters import (
     ensure_aware,
     resolve_file_names,
 )
+from schemaform.master import validate_master_references
 from schemaform.schema import (
     fields_from_schema,
     normalize_field_order,
@@ -108,7 +109,9 @@ async def api_submit_form(public_id: str, request: Request) -> JSONResponse:
 
     validator = Draft7Validator(form["schema_json"])
     errors = sorted(validator.iter_errors(data), key=lambda err: list(err.path))
-    if errors:
+    fields = fields_from_schema(form["schema_json"], form.get("field_order", []))
+    master_errors = validate_master_references(storage, fields, data)
+    if errors or master_errors:
         raise HTTPException(status_code=400, detail="バリデーションに失敗しました")
 
     submission_id = new_ulid()

@@ -4,7 +4,19 @@ import os
 import re
 from pathlib import Path
 
-ALLOWED_TYPES = {"string", "number", "integer", "boolean", "enum", "file", "datetime", "date", "time", "group"}
+ALLOWED_TYPES = {
+    "string",
+    "number",
+    "integer",
+    "boolean",
+    "enum",
+    "file",
+    "datetime",
+    "date",
+    "time",
+    "group",
+    "master",
+}
 KEY_PATTERN = re.compile(r"^[A-Za-z][A-Za-z0-9_]*$")
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent

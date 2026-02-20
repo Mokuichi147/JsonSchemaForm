@@ -6,6 +6,7 @@ from urllib.parse import urlsplit
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
+from schemaform.fields import flatten_fields
 from schemaform.schema import (
     fields_from_schema,
     parse_fields_json,
@@ -36,6 +37,29 @@ def resolve_redirect_target(next_path: Any, default: str = "/admin/forms") -> st
     return parsed.path
 
 
+def build_master_field_catalog(storage: Any, current_form_id: str | None = None) -> tuple[list[dict[str, str]], dict[str, list[dict[str, str]]]]:
+    master_forms: list[dict[str, str]] = []
+    field_catalog: dict[str, list[dict[str, str]]] = {}
+    for form in storage.forms.list_forms():
+        form_id = form.get("id")
+        if not form_id or (current_form_id and form_id == current_form_id):
+            continue
+        master_forms.append({"id": form_id, "name": form.get("name") or form_id})
+        fields = fields_from_schema(form.get("schema_json", {}), form.get("field_order", []))
+        candidates: list[dict[str, str]] = []
+        for field in flatten_fields(fields, expand_rows_for_group_arrays=True):
+            if field.get("type") in {"group", "file"}:
+                continue
+            candidates.append(
+                {
+                    "key": field.get("flat_key", ""),
+                    "label": field.get("flat_label", field.get("flat_key", "")),
+                }
+            )
+        field_catalog[form_id] = candidates
+    return master_forms, field_catalog
+
+
 @router.get("/", response_class=HTMLResponse, tags=["admin"])
 async def home(request: Request) -> HTMLResponse:
     return RedirectResponse("/admin/forms")
@@ -54,7 +78,9 @@ async def list_forms(request: Request, _: Any = Depends(admin_guard)) -> HTMLRes
 
 @router.get("/admin/forms/new", response_class=HTMLResponse, tags=["admin"])
 async def new_form(request: Request, _: Any = Depends(admin_guard)) -> HTMLResponse:
+    storage = request.app.state.storage
     templates = request.app.state.templates
+    master_forms, master_field_catalog = build_master_field_catalog(storage)
     return templates.TemplateResponse(
         "admin_form_builder.html",
         {
@@ -62,6 +88,8 @@ async def new_form(request: Request, _: Any = Depends(admin_guard)) -> HTMLRespo
             "form": None,
             "fields": [],
             "fields_json": dumps_json([]),
+            "master_forms_json": dumps_json(master_forms),
+            "master_field_catalog_json": dumps_json(master_field_catalog),
             "errors": [],
         },
     )
@@ -77,6 +105,7 @@ async def create_form(request: Request, _: Any = Depends(admin_guard)) -> HTMLRe
     fields_json = str(form_data.get("fields_json", ""))
 
     fields, errors = parse_fields_json(fields_json)
+    master_forms, master_field_catalog = build_master_field_catalog(storage)
     if not name:
         errors.append("フォーム名は必須です")
 
@@ -88,6 +117,8 @@ async def create_form(request: Request, _: Any = Depends(admin_guard)) -> HTMLRe
                 "form": {"name": name, "description": description},
                 "fields": fields,
                 "fields_json": dumps_json(fields),
+                "master_forms_json": dumps_json(master_forms),
+                "master_field_catalog_json": dumps_json(master_field_catalog),
                 "errors": errors,
             },
         )
@@ -120,6 +151,7 @@ async def edit_form(request: Request, form_id: str, _: Any = Depends(admin_guard
     if not form:
         raise HTTPException(status_code=404, detail="フォームが見つかりません")
     fields = fields_from_schema(form["schema_json"], form.get("field_order", []))
+    master_forms, master_field_catalog = build_master_field_catalog(storage, current_form_id=form_id)
     return templates.TemplateResponse(
         "admin_form_builder.html",
         {
@@ -127,6 +159,8 @@ async def edit_form(request: Request, form_id: str, _: Any = Depends(admin_guard
             "form": form,
             "fields": fields,
             "fields_json": dumps_json(fields),
+            "master_forms_json": dumps_json(master_forms),
+            "master_field_catalog_json": dumps_json(master_field_catalog),
             "errors": [],
         },
     )
@@ -146,6 +180,7 @@ async def update_form(request: Request, form_id: str, _: Any = Depends(admin_gua
     fields_json = str(form_data.get("fields_json", ""))
 
     fields, errors = parse_fields_json(fields_json)
+    master_forms, master_field_catalog = build_master_field_catalog(storage, current_form_id=form_id)
     if not name:
         errors.append("フォーム名は必須です")
 
@@ -157,6 +192,8 @@ async def update_form(request: Request, form_id: str, _: Any = Depends(admin_gua
                 "form": {**form, "name": name, "description": description},
                 "fields": fields,
                 "fields_json": dumps_json(fields),
+                "master_forms_json": dumps_json(master_forms),
+                "master_field_catalog_json": dumps_json(master_field_catalog),
                 "errors": errors,
             },
         )

@@ -40,9 +40,24 @@ def parse_fields_json(fields_json: str) -> tuple[list[dict[str, Any]], list[str]
             is_array = bool(raw.get("is_array"))
             items_type = str(raw.get("items_type", "")).strip() if is_array else ""
             expand_rows = bool(raw.get("expand_rows")) if (field_type == "group" and is_array) else False
+            master_form_id = str(raw.get("master_form_id", "")).strip() if field_type == "master" else ""
+            master_label_key = str(raw.get("master_label_key", "")).strip() if field_type == "master" else ""
+            master_display_fields: list[str] = []
+            if field_type == "master":
+                raw_display_fields = raw.get("master_display_fields") or []
+                if isinstance(raw_display_fields, list):
+                    seen_display_keys: set[str] = set()
+                    for item in raw_display_fields:
+                        key_name = str(item).strip()
+                        if not key_name or key_name in seen_display_keys:
+                            continue
+                        seen_display_keys.add(key_name)
+                        master_display_fields.append(key_name)
 
             if field_type not in ALLOWED_TYPES:
                 errors.append(f"{loc}: 種類が不正です ({field_type})")
+            if field_type == "master" and not master_form_id:
+                errors.append(f"{loc}: 参照元フォームを指定してください")
 
             children: list[dict[str, Any]] = []
             if field_type == "group":
@@ -83,6 +98,9 @@ def parse_fields_json(fields_json: str) -> tuple[list[dict[str, Any]], list[str]
                     "items_type": items_type,
                     "multiline": bool(raw.get("multiline")),
                     "expand_rows": expand_rows,
+                    "master_form_id": master_form_id,
+                    "master_label_key": master_label_key,
+                    "master_display_fields": master_display_fields,
                     "children": children,
                 }
             )
@@ -108,6 +126,15 @@ def build_property(field: dict[str, Any]) -> dict[str, Any]:
             return {"type": "string", "format": "time"}
         if item_type == "enum":
             return {"type": "string", "enum": field.get("enum", [])}
+        if item_type == "master":
+            payload: dict[str, Any] = {"type": "string", "x-field-type": "master"}
+            if field.get("master_form_id"):
+                payload["x-master-form-id"] = field["master_form_id"]
+            if field.get("master_label_key"):
+                payload["x-master-label-key"] = field["master_label_key"]
+            if field.get("master_display_fields"):
+                payload["x-master-display-fields"] = field["master_display_fields"]
+            return payload
         payload: dict[str, Any] = {"type": item_type}
         if item_type in {"number", "integer"}:
             if field.get("min") is not None:
@@ -207,6 +234,12 @@ def fields_from_schema(schema: dict[str, Any], field_order: list[str]) -> list[d
         prop = properties.get(key, {})
         is_array = prop.get("type") == "array"
         target = prop.get("items", {}) if is_array else prop
+        raw_master_display_fields = target.get("x-master-display-fields", [])
+        master_display_fields = (
+            [str(item).strip() for item in raw_master_display_fields if str(item).strip()]
+            if isinstance(raw_master_display_fields, list)
+            else []
+        )
 
         is_group = (
             target.get("x-field-type") == "group"
@@ -232,6 +265,9 @@ def fields_from_schema(schema: dict[str, Any], field_order: list[str]) -> list[d
                     "items_type": "",
                     "multiline": False,
                     "expand_rows": bool(prop.get("x-expand-rows", False)) if is_array else False,
+                    "master_form_id": "",
+                    "master_label_key": "",
+                    "master_display_fields": [],
                     "children": children,
                 }
             )
@@ -248,6 +284,8 @@ def fields_from_schema(schema: dict[str, Any], field_order: list[str]) -> list[d
             field_type = "enum"
         if target.get("format") == "binary":
             field_type = "file"
+        if target.get("x-field-type") == "master":
+            field_type = "master"
 
         fields.append(
             {
@@ -265,6 +303,9 @@ def fields_from_schema(schema: dict[str, Any], field_order: list[str]) -> list[d
                 "items_type": field_type if is_array else "",
                 "multiline": prop.get("x-multiline", False),
                 "expand_rows": False,
+                "master_form_id": target.get("x-master-form-id", "") if field_type == "master" else "",
+                "master_label_key": target.get("x-master-label-key", "") if field_type == "master" else "",
+                "master_display_fields": master_display_fields if field_type == "master" else [],
                 "children": [],
             }
         )

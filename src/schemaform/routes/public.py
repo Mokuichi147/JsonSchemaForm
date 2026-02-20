@@ -9,6 +9,7 @@ from jsonschema import Draft7Validator
 
 from schemaform.fields import clean_empty_recursive
 from schemaform.filters import normalize_number, parse_bool
+from schemaform.master import enrich_master_options, validate_master_references
 from schemaform.schema import fields_from_schema
 from schemaform.utils import new_ulid, now_utc
 
@@ -46,6 +47,7 @@ async def public_form(request: Request, public_id: str) -> HTMLResponse:
     if not form:
         raise HTTPException(status_code=404, detail="フォームが見つかりません")
     fields = fields_from_schema(form["schema_json"], form.get("field_order", []))
+    enrich_master_options(storage, fields)
     inactive = form.get("status") != "active"
     errors = ["このフォームは停止中です"] if inactive else []
     return templates.TemplateResponse(
@@ -68,12 +70,14 @@ async def submit_form(request: Request, public_id: str) -> HTMLResponse:
     if not form:
         raise HTTPException(status_code=404, detail="フォームが見つかりません")
     if form.get("status") != "active":
+        fields = fields_from_schema(form["schema_json"], form.get("field_order", []))
+        enrich_master_options(storage, fields)
         return templates.TemplateResponse(
             "form_public.html",
             {
                 "request": request,
                 "form": form,
-                "fields": fields_from_schema(form["schema_json"], form.get("field_order", [])),
+                "fields": fields,
                 "errors": ["このフォームは停止中です"],
                 "inactive": True,
             },
@@ -81,6 +85,7 @@ async def submit_form(request: Request, public_id: str) -> HTMLResponse:
 
     form_data = await request.form()
     fields = fields_from_schema(form["schema_json"], form.get("field_order", []))
+    enrich_master_options(storage, fields)
     submission: dict[str, Any] = {}
 
     async def collect_fields(
@@ -160,8 +165,9 @@ async def submit_form(request: Request, public_id: str) -> HTMLResponse:
 
     validator = Draft7Validator(form["schema_json"])
     errors = sorted(validator.iter_errors(submission), key=lambda err: list(err.path))
-    if errors:
-        messages = [f"{error.message}" for error in errors]
+    master_errors = validate_master_references(storage, fields, submission)
+    if errors or master_errors:
+        messages = [f"{error.message}" for error in errors] + master_errors
         return templates.TemplateResponse(
             "form_public.html",
             {

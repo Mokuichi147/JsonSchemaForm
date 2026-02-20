@@ -100,7 +100,7 @@
     {% set ns.fw = "max-w-[11rem]" %}
   {% elif picker %}
     {% set ns.fw = "max-w-xs" %}
-  {% elif field.type == "enum" or field_input_type(field) in ["email", "url"] %}
+  {% elif field.type in ["enum", "master"] or field_input_type(field) in ["email", "url"] %}
     {% set ns.fw = "max-w-sm" %}
   {% endif %}
   <div class="py-2 lg:py-3">
@@ -126,13 +126,37 @@
               <div class="space-y-2 array-items"></div>
               <button type="button" class="add-item mt-1 rounded border border-slate-300 px-3 py-1 text-xs" {% if inactive %}disabled{% endif %}>追加</button>
               <template>
-                <div class="flex items-center gap-2 array-item">
+                <div class="flex items-start gap-2 array-item">
                   {% if field.type == "enum" %}
                   <select name="{{ form_name }}" class="w-full rounded border border-slate-300 px-2 py-2 text-sm" {% if inactive %}disabled{% endif %}>
                     {% for option in field.enum %}
                     <option value="{{ option }}">{{ option }}</option>
                     {% endfor %}
                   </select>
+                  {% elif field.type == "master" %}
+                  <div class="w-full space-y-1" data-role="master-ref">
+                    <select name="{{ form_name }}" data-role="master-select" class="w-full rounded border border-slate-300 px-2 py-2 text-sm" {% if inactive %}disabled{% endif %}>
+                      {% for option in field.master_options or [] %}
+                      <option value="{{ option.value }}" data-master-display="{{ option.display_json | default('{}') | e }}">{{ option.label }}</option>
+                      {% endfor %}
+                    </select>
+                    <div data-role="master-display" class="hidden mt-2 {{ group_container_class }}">
+                      <div class="space-y-3">
+                      {% for display_item in field.master_display_items or [] %}
+                      <div data-role="master-display-row" data-master-display-key="{{ display_item.key }}" class="hidden py-2 lg:py-3">
+                        <div class="sf-field-row lg:grid lg:grid-cols-12 lg:items-start lg:gap-4">
+                          <div class="lg:col-span-3">
+                            <div class="block text-sm font-semibold leading-6">{{ display_item.label }}</div>
+                          </div>
+                          <div class="sf-field-input-col lg:col-span-9">
+                            <div data-role="master-display-value" class="mt-1 w-full rounded border border-slate-200 bg-white/70 px-2 py-2 text-sm text-slate-700 lg:mt-0"></div>
+                          </div>
+                        </div>
+                      </div>
+                      {% endfor %}
+                      </div>
+                    </div>
+                  </div>
                   {% elif field.type == "boolean" %}
                   <select name="{{ form_name }}" class="w-full rounded border border-slate-300 px-2 py-2 text-sm" {% if inactive %}disabled{% endif %}>
                     <option value="true">true</option>
@@ -158,6 +182,31 @@
             <option value="{{ option }}">{{ option }}</option>
             {% endfor %}
           </select>
+          {% elif field.type == "master" %}
+          <div class="mt-1 w-full {{ ns.fw }} space-y-1 lg:mt-0" data-role="master-ref">
+            <select name="{{ form_name }}" data-role="master-select" class="w-full rounded border border-slate-300 px-2 py-2 text-sm" {% if field.required %}required{% endif %} {% if inactive %}disabled{% endif %}>
+              <option value="" data-master-display="{}">選択してください</option>
+              {% for option in field.master_options or [] %}
+              <option value="{{ option.value }}" data-master-display="{{ option.display_json | default('{}') | e }}">{{ option.label }}</option>
+              {% endfor %}
+            </select>
+            <div data-role="master-display" class="hidden mt-2 {{ group_container_class }}">
+              <div class="space-y-3">
+              {% for display_item in field.master_display_items or [] %}
+              <div data-role="master-display-row" data-master-display-key="{{ display_item.key }}" class="hidden py-2 lg:py-3">
+                <div class="sf-field-row lg:grid lg:grid-cols-12 lg:items-start lg:gap-4">
+                  <div class="lg:col-span-3">
+                    <div class="block text-sm font-semibold leading-6">{{ display_item.label }}</div>
+                  </div>
+                  <div class="sf-field-input-col lg:col-span-9">
+                    <div data-role="master-display-value" class="mt-1 w-full rounded border border-slate-200 bg-white/70 px-2 py-2 text-sm text-slate-700 lg:mt-0"></div>
+                  </div>
+                </div>
+              </div>
+              {% endfor %}
+              </div>
+            </div>
+          </div>
           {% elif field.type == "boolean" %}
           <div class="mt-1 flex items-center gap-2">
             <input type="checkbox" name="{{ form_name }}" value="true" class="h-4 w-4" {% if field.required %}required{% endif %} {% if inactive %}disabled{% endif %} />
@@ -361,6 +410,60 @@
     flatpickr(input, options);
   }
 
+  function parseMasterDisplay(option) {
+    const raw = option?.dataset.masterDisplay || "{}";
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return parsed;
+      }
+      return {};
+    } catch (error) {
+      return {};
+    }
+  }
+
+  function updateMasterDisplay(select) {
+    if (!select) return;
+    const wrapper = select.closest("[data-role='master-ref']");
+    if (!wrapper) return;
+    const panel = wrapper.querySelector("[data-role='master-display']");
+    if (!panel) return;
+    const rows = Array.from(panel.querySelectorAll("[data-role='master-display-row']"));
+    if (rows.length === 0) {
+      panel.classList.add("hidden");
+      return;
+    }
+    const option = select.options[select.selectedIndex];
+    const displayMap = parseMasterDisplay(option);
+    let visibleCount = 0;
+    rows.forEach((row) => {
+      const key = row.dataset.masterDisplayKey || "";
+      const value = String(displayMap[key] ?? "").trim();
+      const valueEl = row.querySelector("[data-role='master-display-value']");
+      if (valueEl) {
+        valueEl.textContent = value;
+      }
+      const show = value.length > 0;
+      row.classList.toggle("hidden", !show);
+      if (show) {
+        visibleCount += 1;
+      }
+    });
+    panel.classList.toggle("hidden", !select.value || visibleCount === 0);
+  }
+
+  function initMasterReference(scope) {
+    if (!scope || !scope.querySelectorAll) return;
+    scope.querySelectorAll("select[data-role='master-select']").forEach((select) => {
+      if (select.dataset.sfMasterInit !== "1") {
+        select.dataset.sfMasterInit = "1";
+        select.addEventListener("change", () => updateMasterDisplay(select));
+      }
+      updateMasterDisplay(select);
+    });
+  }
+
   function initArrayFieldBlock(block) {
     if (!block || block.dataset.sfArrayInit === "1") return;
     block.dataset.sfArrayInit = "1";
@@ -380,6 +483,7 @@
         const input = node.querySelector("input[data-picker]");
         initPicker(input);
       }
+      initMasterReference(node);
       list.appendChild(node);
     }
 
@@ -569,6 +673,7 @@
       node.querySelectorAll("input[data-picker]").forEach(initPicker);
       node.querySelectorAll(".array-field").forEach(initArrayFieldBlock);
       node.querySelectorAll(".array-group").forEach(initArrayGroupBlock);
+      initMasterReference(node);
     }
 
     function addGroupItem(options = {}) {
@@ -649,5 +754,6 @@
   document.querySelectorAll("input[data-picker]").forEach(initPicker);
   document.querySelectorAll(".array-field").forEach(initArrayFieldBlock);
   document.querySelectorAll(".array-group").forEach(initArrayGroupBlock);
+  initMasterReference(document);
 </script>
 {% endblock %}
