@@ -128,14 +128,14 @@
               <template>
                 <div class="flex items-start gap-2 array-item">
                   {% if field.type == "enum" %}
-                  <select name="{{ form_name }}" class="w-full rounded border border-slate-300 px-2 py-2 text-sm" {% if inactive %}disabled{% endif %}>
+                  <select name="{{ form_name }}" data-choice-select="1" data-search-placeholder="選択肢を検索" class="w-full rounded border border-slate-300 px-2 py-2 text-sm" {% if inactive %}disabled{% endif %}>
                     {% for option in field.enum %}
                     <option value="{{ option }}">{{ option }}</option>
                     {% endfor %}
                   </select>
                   {% elif field.type == "master" %}
                   <div class="w-full space-y-1" data-role="master-ref">
-                    <select name="{{ form_name }}" data-role="master-select" class="w-full rounded border border-slate-300 px-2 py-2 text-sm" {% if inactive %}disabled{% endif %}>
+                    <select name="{{ form_name }}" data-role="master-select" data-choice-select="1" data-search-placeholder="参照データを検索" class="w-full rounded border border-slate-300 px-2 py-2 text-sm" {% if inactive %}disabled{% endif %}>
                       {% for option in field.master_options or [] %}
                       <option value="{{ option.value }}" data-master-display="{{ option.display_json | default('{}') | e }}">{{ option.label }}</option>
                       {% endfor %}
@@ -176,7 +176,7 @@
           {% endif %}
         {% else %}
           {% if field.type == "enum" %}
-          <select name="{{ form_name }}" class="mt-1 w-full {{ ns.fw }} rounded border border-slate-300 px-2 py-2 text-sm lg:mt-0" {% if field.required %}required{% endif %} {% if inactive %}disabled{% endif %}>
+          <select name="{{ form_name }}" data-choice-select="1" data-search-placeholder="選択肢を検索" class="mt-1 w-full {{ ns.fw }} rounded border border-slate-300 px-2 py-2 text-sm lg:mt-0" {% if field.required %}required{% endif %} {% if inactive %}disabled{% endif %}>
             <option value="">選択してください</option>
             {% for option in field.enum %}
             <option value="{{ option }}">{{ option }}</option>
@@ -184,7 +184,7 @@
           </select>
           {% elif field.type == "master" %}
           <div class="mt-1 w-full {{ ns.fw }} space-y-1 lg:mt-0" data-role="master-ref">
-            <select name="{{ form_name }}" data-role="master-select" class="w-full rounded border border-slate-300 px-2 py-2 text-sm" {% if field.required %}required{% endif %} {% if inactive %}disabled{% endif %}>
+            <select name="{{ form_name }}" data-role="master-select" data-choice-select="1" data-search-placeholder="参照データを検索" class="w-full rounded border border-slate-300 px-2 py-2 text-sm" {% if field.required %}required{% endif %} {% if inactive %}disabled{% endif %}>
               <option value="" data-master-display="{}">選択してください</option>
               {% for option in field.master_options or [] %}
               <option value="{{ option.value }}" data-master-display="{{ option.display_json | default('{}') | e }}">{{ option.label }}</option>
@@ -308,6 +308,14 @@
     }
   }
 
+  /* iOS Safari の自動ズーム抑止: 入力文字サイズを 16px 以上にする */
+  @supports (-webkit-touch-callout: none) {
+    .sf-choice-search {
+      font-size: 16px;
+      line-height: 1.4;
+    }
+  }
+
 </style>
 
 <script>
@@ -410,6 +418,76 @@
     flatpickr(input, options);
   }
 
+  const CHOICE_SEARCH_THRESHOLD = 6;
+
+  function snapshotSelectOptions(select) {
+    return Array.from(select.options).map((option) => ({
+      value: option.value,
+      text: option.textContent || "",
+      disabled: option.disabled,
+      dataset: { ...option.dataset },
+    }));
+  }
+
+  function buildSelectOption(meta) {
+    const option = document.createElement("option");
+    option.value = meta.value;
+    option.textContent = meta.text;
+    option.disabled = Boolean(meta.disabled);
+    Object.entries(meta.dataset || {}).forEach(([key, value]) => {
+      option.dataset[key] = String(value);
+    });
+    return option;
+  }
+
+  function applyChoiceFilter(select, searchInput) {
+    const allOptions = select._sfChoiceOptions || [];
+    if (allOptions.length === 0) return;
+    const query = (searchInput?.value || "").trim().toLowerCase();
+    const selectedValue = select.value;
+    const filtered = allOptions.filter((meta) => {
+      const isPlaceholder = meta.value === "";
+      if (isPlaceholder) return true;
+      if (selectedValue !== "" && meta.value === selectedValue) return true;
+      if (!query) return true;
+      return meta.text.toLowerCase().includes(query);
+    });
+
+    select.replaceChildren(...filtered.map((meta) => buildSelectOption(meta)));
+    if (selectedValue !== "") {
+      select.value = selectedValue;
+    }
+    if (select.dataset.role === "master-select") {
+      updateMasterDisplay(select);
+    }
+  }
+
+  function initChoiceSelectSearch(scope) {
+    if (!scope || !scope.querySelectorAll) return;
+    scope.querySelectorAll("select[data-choice-select='1']").forEach((select) => {
+      if (select.dataset.sfChoiceInit === "1") return;
+      const allOptions = snapshotSelectOptions(select);
+      const optionCount = allOptions.filter((meta) => meta.value !== "").length;
+      if (optionCount < CHOICE_SEARCH_THRESHOLD) {
+        select.dataset.sfChoiceInit = "1";
+        return;
+      }
+
+      const searchInput = document.createElement("input");
+      searchInput.type = "search";
+      searchInput.autocomplete = "off";
+      searchInput.spellcheck = false;
+      searchInput.placeholder = select.dataset.searchPlaceholder || "検索";
+      searchInput.className = "sf-choice-search mb-1 w-full rounded border border-slate-300 px-2 py-1 text-sm";
+      searchInput.disabled = select.disabled;
+
+      select._sfChoiceOptions = allOptions;
+      select.parentElement?.insertBefore(searchInput, select);
+      searchInput.addEventListener("input", () => applyChoiceFilter(select, searchInput));
+      select.dataset.sfChoiceInit = "1";
+    });
+  }
+
   function parseMasterDisplay(option) {
     const raw = option?.dataset.masterDisplay || "{}";
     try {
@@ -483,6 +561,7 @@
         const input = node.querySelector("input[data-picker]");
         initPicker(input);
       }
+      initChoiceSelectSearch(node);
       initMasterReference(node);
       list.appendChild(node);
     }
@@ -673,6 +752,7 @@
       node.querySelectorAll("input[data-picker]").forEach(initPicker);
       node.querySelectorAll(".array-field").forEach(initArrayFieldBlock);
       node.querySelectorAll(".array-group").forEach(initArrayGroupBlock);
+      initChoiceSelectSearch(node);
       initMasterReference(node);
     }
 
@@ -754,6 +834,7 @@
   document.querySelectorAll("input[data-picker]").forEach(initPicker);
   document.querySelectorAll(".array-field").forEach(initArrayFieldBlock);
   document.querySelectorAll(".array-group").forEach(initArrayGroupBlock);
+  initChoiceSelectSearch(document);
   initMasterReference(document);
 </script>
 {% endblock %}
