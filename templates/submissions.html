@@ -58,7 +58,7 @@
         <input name="{{ param_key }}" value="{{ query.get(param_key, '') }}" class="mt-2 w-full rounded border border-slate-300 px-2 py-1 text-sm" placeholder="含む値" />
         {% endif %}
       {% elif field.type in ['number', 'integer'] %}
-        <div class="mt-2 grid grid-cols-2 gap-2">
+        <div class="mt-2 grid gap-2">
           <input name="{{ param_key }}_min" value="{{ query.get(param_key ~ '_min', '') }}" class="w-full rounded border border-slate-300 px-2 py-1 text-sm" placeholder="min" />
           <input name="{{ param_key }}_max" value="{{ query.get(param_key ~ '_max', '') }}" class="w-full rounded border border-slate-300 px-2 py-1 text-sm" placeholder="max" />
         </div>

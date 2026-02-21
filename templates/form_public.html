@@ -128,11 +128,13 @@
               <template>
                 <div class="flex items-start gap-2 array-item">
                   {% if field.type == "enum" %}
-                  <select name="{{ form_name }}" data-choice-select="1" data-search-placeholder="選択肢を検索" class="w-full rounded border border-slate-300 px-2 py-2 text-sm" {% if inactive %}disabled{% endif %}>
-                    {% for option in field.enum %}
-                    <option value="{{ option }}">{{ option }}</option>
-                    {% endfor %}
-                  </select>
+                  <div class="w-full space-y-1">
+                    <select name="{{ form_name }}" data-choice-select="1" data-search-placeholder="選択肢を検索" class="w-full rounded border border-slate-300 px-2 py-2 text-sm" {% if inactive %}disabled{% endif %}>
+                      {% for option in field.enum %}
+                      <option value="{{ option }}">{{ option }}</option>
+                      {% endfor %}
+                    </select>
+                  </div>
                   {% elif field.type == "master" %}
                   <div class="w-full space-y-1" data-role="master-ref">
                     <select name="{{ form_name }}" data-role="master-select" data-choice-select="1" data-search-placeholder="参照データを検索" class="w-full rounded border border-slate-300 px-2 py-2 text-sm" {% if inactive %}disabled{% endif %}>
@@ -176,12 +178,14 @@
           {% endif %}
         {% else %}
           {% if field.type == "enum" %}
-          <select name="{{ form_name }}" data-choice-select="1" data-search-placeholder="選択肢を検索" class="mt-1 w-full {{ ns.fw }} rounded border border-slate-300 px-2 py-2 text-sm lg:mt-0" {% if field.required %}required{% endif %} {% if inactive %}disabled{% endif %}>
-            <option value="">選択してください</option>
-            {% for option in field.enum %}
-            <option value="{{ option }}">{{ option }}</option>
-            {% endfor %}
-          </select>
+          <div class="mt-1 w-full {{ ns.fw }} space-y-1 lg:mt-0">
+            <select name="{{ form_name }}" data-choice-select="1" data-search-placeholder="選択肢を検索" class="w-full rounded border border-slate-300 px-2 py-2 text-sm" {% if field.required %}required{% endif %} {% if inactive %}disabled{% endif %}>
+              <option value="">選択してください</option>
+              {% for option in field.enum %}
+              <option value="{{ option }}">{{ option }}</option>
+              {% endfor %}
+            </select>
+          </div>
           {% elif field.type == "master" %}
           <div class="mt-1 w-full {{ ns.fw }} space-y-1 lg:mt-0" data-role="master-ref">
             <select name="{{ form_name }}" data-role="master-select" data-choice-select="1" data-search-placeholder="参照データを検索" class="w-full rounded border border-slate-300 px-2 py-2 text-sm" {% if field.required %}required{% endif %} {% if inactive %}disabled{% endif %}>
