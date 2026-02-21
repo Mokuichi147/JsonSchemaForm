@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse
 from jsonschema import Draft7Validator
 
+from schemaform.file_formats import upload_matches_file_constraints
 from schemaform.fields import clean_empty_recursive
 from schemaform.filters import normalize_number, parse_bool
 from schemaform.master import enrich_master_options, validate_master_references
@@ -16,9 +17,22 @@ from schemaform.utils import new_ulid, now_utc
 router = APIRouter()
 
 
-async def save_upload(file_obj: Any, form_id: str, request: Request) -> str:
+async def save_upload(
+    file_obj: Any,
+    form_id: str,
+    request: Request,
+    file_format: str = "",
+    allowed_extensions: list[str] | None = None,
+) -> str:
     storage = request.app.state.storage
     settings = request.app.state.settings
+    if not upload_matches_file_constraints(
+        content_type=file_obj.content_type,
+        filename=file_obj.filename,
+        file_format=file_format,
+        allowed_extensions=allowed_extensions or [],
+    ):
+        raise HTTPException(status_code=400, detail="ファイル種別が許可されていません")
     file_id = new_ulid()
     destination = settings.upload_dir / file_id
     content = await file_obj.read()
@@ -127,7 +141,15 @@ async def submit_form(request: Request, public_id: str) -> HTMLResponse:
                     file_ids: list[str] = []
                     for upload in uploads:
                         if upload and getattr(upload, "filename", ""):
-                            file_ids.append(await save_upload(upload, form["id"], request))
+                            file_ids.append(
+                                await save_upload(
+                                    upload,
+                                    form["id"],
+                                    request,
+                                    str(field.get("format", "")),
+                                    field.get("allowed_extensions") or [],
+                                )
+                            )
                     target[key] = file_ids
                     continue
 
@@ -147,7 +169,13 @@ async def submit_form(request: Request, public_id: str) -> HTMLResponse:
                 if field_type == "file":
                     upload = form_data.get(form_key)
                     if upload and getattr(upload, "filename", ""):
-                        target[key] = await save_upload(upload, form["id"], request)
+                        target[key] = await save_upload(
+                            upload,
+                            form["id"],
+                            request,
+                            str(field.get("format", "")),
+                            field.get("allowed_extensions") or [],
+                        )
                     else:
                         target[key] = None
                     continue

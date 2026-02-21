@@ -115,11 +115,9 @@
         <input data-field="placeholder" class="mt-1 w-full rounded border border-slate-300 px-2 py-1 text-sm" />
       </div>
       <div data-role="format">
-        <label class="text-xs text-slate-500">フォーマット</label>
+        <label data-role="format-label" class="text-xs text-slate-500">フォーマット</label>
         <select data-field="format" class="mt-1 w-full rounded border border-slate-300 px-2 py-1 text-sm">
           <option value="">指定なし</option>
-          <option value="email">email</option>
-          <option value="url">url</option>
         </select>
       </div>
     </div>
@@ -139,6 +137,12 @@
           <input data-field="max" class="mt-1 w-full rounded border border-slate-300 px-2 py-1 text-sm" />
         </div>
       </div>
+    </div>
+
+    <div data-role="file-extensions" class="mt-3 hidden">
+      <label class="text-xs text-slate-500">許可拡張子 (カンマ区切り)</label>
+      <input data-field="allowed_extensions_input" class="mt-1 w-full rounded border border-slate-300 px-2 py-1 text-sm" placeholder=".pdf, .docx" />
+      <p class="mt-1 text-xs text-slate-500">指定した場合はファイル分類よりこちらを優先します。</p>
     </div>
 
     <div data-role="master-config" class="mt-3 hidden">
@@ -262,6 +266,18 @@
     file: "ファイル",
     group: "グループ",
   };
+  const stringFormatOptions = [
+    { value: "", label: "指定なし" },
+    { value: "email", label: "email" },
+    { value: "url", label: "url" },
+  ];
+  const fileFormatOptions = [
+    { value: "", label: "指定なし（すべて）" },
+    { value: "image", label: "画像" },
+    { value: "video", label: "動画" },
+    { value: "audio", label: "音声" },
+    { value: "document", label: "文書ファイル" },
+  ];
 
   const defaultField = {
     key: "",
@@ -274,6 +290,7 @@
     min: "",
     max: "",
     format: "",
+    allowed_extensions: [],
     is_array: false,
     expand_rows: false,
     items_type: "",
@@ -315,6 +332,9 @@
     }
     if (!Array.isArray(field.master_display_fields)) {
       field.master_display_fields = [];
+    }
+    if (!Array.isArray(field.allowed_extensions)) {
+      field.allowed_extensions = [];
     }
     return field;
   }
@@ -385,6 +405,77 @@
     current.replaceWith(next);
     next.addEventListener("change", () => updateFieldsJson());
     next.addEventListener("input", () => updateFieldsJson());
+  }
+
+  function refreshFormatOptions(row, preferredValue = null) {
+    const typeInput = row.querySelector('[data-field="type"]');
+    const formatSelect = row.querySelector('[data-field="format"]');
+    const formatLabel = row.querySelector('[data-role="format-label"]');
+    if (!typeInput || !formatSelect || !formatLabel) return;
+
+    const type = typeInput.value;
+    const options = type === "file"
+      ? fileFormatOptions
+      : type === "string"
+        ? stringFormatOptions
+        : [{ value: "", label: "指定なし" }];
+    const allowLegacyOption = preferredValue !== null;
+    const currentValue = preferredValue ?? formatSelect.value ?? "";
+
+    formatSelect.innerHTML = "";
+    options.forEach((item) => {
+      const option = document.createElement("option");
+      option.value = item.value;
+      option.textContent = item.label;
+      formatSelect.appendChild(option);
+    });
+    if (allowLegacyOption && currentValue && !options.some((item) => item.value === currentValue)) {
+      const legacyOption = document.createElement("option");
+      legacyOption.value = currentValue;
+      legacyOption.textContent = `${currentValue}（既存設定）`;
+      formatSelect.appendChild(legacyOption);
+    }
+    formatSelect.value = options.some((item) => item.value === currentValue) || allowLegacyOption
+      ? currentValue
+      : "";
+    formatLabel.textContent = type === "file" ? "ファイル分類" : "フォーマット";
+  }
+
+  function normalizeAllowedExtensionsInput(raw) {
+    const tokens = String(raw || "")
+      .split(",")
+      .map((item) => item.trim().toLowerCase())
+      .filter((item) => item.length > 0)
+      .map((item) => item.startsWith(".") ? item : `.${item}`);
+    const seen = new Set();
+    const normalized = [];
+    tokens.forEach((item) => {
+      if (seen.has(item)) return;
+      seen.add(item);
+      normalized.push(item);
+    });
+    return normalized;
+  }
+
+  function formatAllowedExtensionsInput(values) {
+    if (!Array.isArray(values)) return "";
+    return values
+      .map((item) => String(item || "").trim())
+      .filter((item) => item.length > 0)
+      .join(", ");
+  }
+
+  function syncFileExtensionPriority(row) {
+    const typeInput = row.querySelector('[data-field="type"]');
+    const formatSelect = row.querySelector('[data-field="format"]');
+    const extInput = row.querySelector('[data-field="allowed_extensions_input"]');
+    if (!typeInput || !formatSelect || !extInput) return;
+    const isFile = typeInput.value === "file";
+    const hasManualExtensions = normalizeAllowedExtensionsInput(extInput.value).length > 0;
+    const disabled = isFile && hasManualExtensions;
+    formatSelect.disabled = disabled;
+    formatSelect.classList.toggle("bg-slate-100", disabled);
+    formatSelect.title = disabled ? "許可拡張子が設定されているため、ファイル分類は適用されません" : "";
   }
 
   function refreshMasterLabelOptions(row, preferredValue = "") {
@@ -506,22 +597,20 @@
     const showEnum = type === "enum";
     const showMasterConfig = type === "master";
     const showMinMax = type === "number" || type === "integer";
-    const showFormat = type === "string";
+    const showFormat = type === "string" || type === "file";
+    const showPlaceholder = type === "string";
+    const showFileExtensions = type === "file";
     const showMultiline = type === "string";
     const showExpandRows = isGroup && isArray;
     row.querySelector('[data-role="enum"]').classList.toggle("hidden", !showEnum);
     row.querySelector('[data-role="master-config"]').classList.toggle("hidden", !showMasterConfig);
     row.querySelector('[data-role="minmax"]').classList.toggle("hidden", !showMinMax);
     row.querySelector('[data-role="format"]').classList.toggle("hidden", isGroup || !showFormat);
-    row.querySelector('[data-role="placeholder"]').classList.toggle("hidden", isGroup || !showFormat);
+    row.querySelector('[data-role="placeholder"]').classList.toggle("hidden", isGroup || !showPlaceholder);
+    row.querySelector('[data-role="file-extensions"]').classList.toggle("hidden", !showFileExtensions);
     row.querySelector('[data-role="multiline"]').classList.toggle("hidden", isGroup || !showMultiline);
     row.querySelector('[data-role="expand-rows"]').classList.toggle("hidden", !showExpandRows);
     row.querySelector('[data-role="group-children"]').classList.toggle("hidden", !isGroup);
-
-    if (isArray && type === "file") {
-      row.querySelector('[data-role="format"]').classList.add("hidden");
-      row.querySelector('[data-role="placeholder"]').classList.add("hidden");
-    }
 
     if (!showExpandRows) {
       row.querySelector('[data-field="expand_rows"]').checked = false;
@@ -530,6 +619,8 @@
     if (!isGroup) {
       applyMultiline(row);
     }
+    refreshFormatOptions(row);
+    syncFileExtensionPriority(row);
     if (showMasterConfig) {
       refreshMasterLabelOptions(row);
       refreshMasterDisplayFieldOptions(
@@ -573,6 +664,9 @@
       min: get("min").value.trim(),
       max: get("max").value.trim(),
       format: get("format").value,
+      allowed_extensions: type === "file"
+        ? normalizeAllowedExtensionsInput(get("allowed_extensions_input").value)
+        : [],
       is_array: isArray,
       expand_rows: type === "group" && isArray ? get("expand_rows").checked : false,
       items_type: isArray ? type : "",
@@ -624,6 +718,9 @@
         updateFieldsJson();
       });
       input.addEventListener("input", () => {
+        if (input.dataset.field === "allowed_extensions_input") {
+          syncFileExtensionPriority(row);
+        }
         updateFieldsJson();
       });
     });
@@ -662,7 +759,8 @@
     setValue(row, "enum", (normalized.enum || []).join(", "));
     setValue(row, "min", normalized.min ?? "");
     setValue(row, "max", normalized.max ?? "");
-    setValue(row, "format", normalized.format ?? "");
+    refreshFormatOptions(row, normalized.format ?? "");
+    setValue(row, "allowed_extensions_input", formatAllowedExtensionsInput(normalized.allowed_extensions || []));
     setValue(row, "is_array", normalized.is_array);
     setValue(row, "expand_rows", normalized.expand_rows);
     setValue(row, "multiline", normalized.multiline);

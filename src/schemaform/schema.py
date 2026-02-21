@@ -5,6 +5,11 @@ from typing import Any
 import orjson
 
 from schemaform.config import ALLOWED_TYPES, KEY_PATTERN
+from schemaform.file_formats import (
+    normalize_allowed_extensions,
+    normalize_file_format,
+    parse_allowed_extensions,
+)
 from schemaform.utils import generate_field_key, now_utc, to_iso
 
 
@@ -42,6 +47,25 @@ def parse_fields_json(fields_json: str) -> tuple[list[dict[str, Any]], list[str]
             expand_rows = bool(raw.get("expand_rows")) if (field_type == "group" and is_array) else False
             master_form_id = str(raw.get("master_form_id", "")).strip() if field_type == "master" else ""
             master_label_key = str(raw.get("master_label_key", "")).strip() if field_type == "master" else ""
+            raw_format = str(raw.get("format", "")).strip()
+            if field_type == "string":
+                format_value = raw_format if raw_format in {"", "email", "url"} else ""
+                if raw_format and not format_value:
+                    errors.append(f"{loc}: 文字列フォーマットが不正です ({raw_format})")
+            elif field_type == "file":
+                format_value = normalize_file_format(raw_format)
+                if raw_format and not format_value:
+                    errors.append(f"{loc}: ファイル分類が不正です ({raw_format})")
+            else:
+                format_value = ""
+            allowed_extensions: list[str] = []
+            if field_type == "file":
+                allowed_extensions, invalid_extensions = parse_allowed_extensions(
+                    raw.get("allowed_extensions")
+                )
+                if invalid_extensions:
+                    samples = ", ".join(invalid_extensions[:3])
+                    errors.append(f"{loc}: 許可拡張子が不正です ({samples})")
             master_display_fields: list[str] = []
             if field_type == "master":
                 raw_display_fields = raw.get("master_display_fields") or []
@@ -93,7 +117,8 @@ def parse_fields_json(fields_json: str) -> tuple[list[dict[str, Any]], list[str]
                     "enum": enum_values,
                     "min": min_value,
                     "max": max_value,
-                    "format": str(raw.get("format", "")).strip(),
+                    "format": format_value,
+                    "allowed_extensions": allowed_extensions,
                     "is_array": is_array,
                     "items_type": items_type,
                     "multiline": bool(raw.get("multiline")),
@@ -117,7 +142,14 @@ def parse_fields_json(fields_json: str) -> tuple[list[dict[str, Any]], list[str]
 def build_property(field: dict[str, Any]) -> dict[str, Any]:
     def build_item(item_type: str) -> dict[str, Any]:
         if item_type == "file":
-            return {"type": "string", "format": "binary"}
+            payload: dict[str, Any] = {"type": "string", "format": "binary"}
+            file_format = normalize_file_format(field.get("format"))
+            if file_format:
+                payload["x-file-format"] = file_format
+            allowed_extensions = normalize_allowed_extensions(field.get("allowed_extensions"))
+            if allowed_extensions:
+                payload["x-file-extensions"] = allowed_extensions
+            return payload
         if item_type == "datetime":
             return {"type": "string", "format": "datetime-local"}
         if item_type == "date":
@@ -261,6 +293,7 @@ def fields_from_schema(schema: dict[str, Any], field_order: list[str]) -> list[d
                     "min": None,
                     "max": None,
                     "format": "",
+                    "allowed_extensions": [],
                     "is_array": is_array,
                     "items_type": "",
                     "multiline": False,
@@ -298,7 +331,18 @@ def fields_from_schema(schema: dict[str, Any], field_order: list[str]) -> list[d
                 "enum": target.get("enum", []),
                 "min": target.get("minimum"),
                 "max": target.get("maximum"),
-                "format": target.get("format", "") if field_type == "string" else "",
+                "format": (
+                    target.get("format", "")
+                    if field_type == "string"
+                    else normalize_file_format(target.get("x-file-format"))
+                    if field_type == "file"
+                    else ""
+                ),
+                "allowed_extensions": (
+                    normalize_allowed_extensions(target.get("x-file-extensions"))
+                    if field_type == "file"
+                    else []
+                ),
                 "is_array": is_array,
                 "items_type": field_type if is_array else "",
                 "multiline": prop.get("x-multiline", False),

@@ -9,6 +9,7 @@ from fastapi.templating import Jinja2Templates
 
 from schemaform.auth import get_auth_provider
 from schemaform.config import BASE_DIR, Settings, ensure_dirs
+from schemaform.file_formats import file_accept_for_constraints
 from schemaform.routes.admin import router as admin_router
 from schemaform.routes.api import router as api_router
 from schemaform.routes.public import router as public_router
@@ -49,6 +50,15 @@ def field_picker(field: dict[str, Any]) -> str:
     if field_type == "string" and field.get("format") in {"datetime-local"}:
         return field["format"]
     return ""
+
+
+def field_file_accept(field: dict[str, Any]) -> str:
+    if field.get("type") != "file":
+        return ""
+    return file_accept_for_constraints(
+        file_format=field.get("format"),
+        allowed_extensions=field.get("allowed_extensions"),
+    )
 
 
 def format_dt(value: Any) -> str:
@@ -102,6 +112,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     templates.env.globals["field_input_type"] = field_input_type
     templates.env.globals["field_picker"] = field_picker
+    templates.env.globals["field_file_accept"] = field_file_accept
     templates.env.globals["format_dt"] = format_dt
     templates.env.globals["iso_dt"] = iso_dt
     templates.env.globals["build_query"] = build_query
