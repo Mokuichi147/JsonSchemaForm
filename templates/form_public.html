@@ -218,7 +218,7 @@
             <span class="text-sm text-slate-700">はい</span>
           </div>
           {% elif field.type == "file" %}
-          <input type="file" name="{{ form_name }}" class="mt-1 w-full rounded border border-slate-300 px-2 py-2 lg:mt-0" {% if file_accept %}accept="{{ file_accept }}"{% endif %} {% if field.required %}required{% endif %} {% if inactive %}disabled{% endif %} />
+          <input type="file" name="{{ form_name }}" class="mt-1 w-full {{ ns.fw }} rounded border border-slate-300 px-2 py-2 lg:mt-0" {% if file_accept %}accept="{{ file_accept }}"{% endif %} {% if field.required %}required{% endif %} {% if inactive %}disabled{% endif %} />
           {% elif field.type in ["number", "integer"] %}
           <input type="number" name="{{ form_name }}" class="mt-1 w-full {{ ns.fw }} rounded border border-slate-300 px-2 py-2 text-sm lg:mt-0" {% if field.type == "number" %}step="any"{% else %}step="1"{% endif %} {% if field.required %}required{% endif %} {% if inactive %}disabled{% endif %} />
           {% elif field.multiline %}
